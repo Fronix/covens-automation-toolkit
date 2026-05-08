@@ -167,7 +167,7 @@ class TimeTrigger extends Trigger {
         this.type = 'time';
     }
 }
-class SummonTriger extends Trigger {
+class SummonTrigger extends Trigger {
     constructor(document, pass, data) {
         super(document, pass, data);
         const fnMacroData = this.document.flags.cat?.macros?.summon ?? [];
@@ -200,6 +200,6 @@ export default {
     SaveTrigger,
     ToolTrigger,
     TimeTrigger,
-    SummonTriger,
+    SummonTrigger,
     CalledTrigger
 };
