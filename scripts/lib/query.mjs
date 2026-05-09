@@ -9,7 +9,7 @@ async function deleteEmbeddedDocuments({uuid, type, ids, options}) {
     const document = await fromUuid(uuid);
     if (!document) return;
     const documents = await documentUtils.deleteEmbeddedDocuments(document, type, ids, options);
-    return documents.map(effect => effect.uuid);
+    return documents.map(document => document.uuid);
 }
 async function deleteDocument({uuid, options}) {
     const document = await fromUuid(uuid);
@@ -17,16 +17,24 @@ async function deleteDocument({uuid, options}) {
     await document.delete(options);
     return uuid;
 }
+async function createEmbeddedDocuments({uuid, type, updates, options}) {
+    const document = await fromUuid(uuid);
+    if (!document) return;
+    const documents = await documentUtils.createEmbeddedDocuments(document, type, updates, options);
+    return documents.map(document => document.uuid);
+}
 function registerQueries() {
     globalThis.CONFIG.queries.cat = {
         createEffects,
         deleteEmbeddedDocuments,
-        deleteDocument
+        deleteDocument,
+        createEmbeddedDocuments
     };
 }
 export default {
     createEffects,
     deleteEmbeddedDocuments,
     deleteDocument,
-    registerQueries
+    registerQueries,
+    createEmbeddedDocuments
 };

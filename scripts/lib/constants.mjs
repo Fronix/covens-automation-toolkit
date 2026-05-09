@@ -194,6 +194,12 @@ const rangedSpellAttacks = [
 const meleeSpellAttacks = [
     'msak'
 ];
+const statusEffectKeys = [
+    'macro.CE',
+    'macro.CUB',
+    'macro.StatusEffect',
+    'StatusEffect'
+];
 export default {
     /** @type {RegisteredMacros} */
     macros: undefined,
@@ -233,5 +239,6 @@ export default {
     meleeWeaponAttacks,
     rangedSpellAttacks,
     meleeSpellAttacks,
-    miscHookNames
+    miscHookNames,
+    statusEffectKeys
 };

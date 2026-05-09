@@ -1,6 +1,7 @@
 import {queryUtils} from '../utilities/_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
 import {auraEvents} from '../events/_module.mjs';
+import {effects} from '../handlers/_module.mjs';
 import specialDuration from '../mechanics/specialDuration.mjs';
 async function doCreateActiveEffect(data, options) {
     let parent = options.parent;
@@ -13,6 +14,7 @@ async function doDeleteActiveEffect(effect, options) {
 async function createActiveEffect(effect, options, userId) {
     if (!queryUtils.isTheGM()) return;
     if (!(effect.parent instanceof Actor) || (effect.parent instanceof Item && effect.parent.actor)) return;
+    if (effect.parent instanceof Actor) effects.addConditions(effect);
     await new Events.EffectEvent(effect, constants.effectPasses.created, {options}).run();
     await auraEvents.effect(effect, options);
     if (effect.statuses.size) await specialDuration.specialDurationConditions(effect);
@@ -21,9 +23,10 @@ async function createActiveEffect(effect, options, userId) {
 async function deleteActiveEffect(effect, options, userId) {
     if (!queryUtils.isTheGM()) return;
     if (!(effect.parent instanceof Actor) || (effect.parent instanceof Item && effect.parent.actor)) return;
+    if (effect.parent instanceof Actor) await effects.removeConditions(effect);
+    if (effect.statuses.size) await specialDuration.specialDurationRemovedConditions(effect);
     await new Events.EffectEvent(effect, constants.effectPasses.deleted, {options}).run();
     await auraEvents.effect(effect, options);
-    if (effect.statuses.size) await specialDuration.specialDurationRemovedConditions(effect);
 }
 async function updateActiveEffect(effect, updates, options, userId) {
     if (!queryUtils.isTheGM()) return;
@@ -42,6 +45,18 @@ function preUpdateActiveEffect(effect, updates, options, userId) {
     if (!(effect.parent instanceof Actor) || (effect.parent instanceof Item && effect.parent.actor)) return;
     new Events.EffectEvent(effect, constants.effectPasses.preUpdated, {options, updates}).runSync();
 }
+function getConditions(effect) {
+    const conditions = new Set();
+    if (effect.changes) {
+        effect.changes.forEach(element => {
+            if (constants.statusEffectKeys.includes(element.key)) conditions.add(element.value.toLowerCase());
+        });
+    }
+    const effectConditions = effect.flags.cat?.conditions;
+    if (effectConditions) effectConditions.forEach(c => conditions.add(c.toLowerCase()));
+    if (effect.statuses) effect.statuses.forEach(status => conditions.add(status));
+    return conditions;
+}
 export default {
     createActiveEffect,
     deleteActiveEffect,
@@ -50,5 +65,6 @@ export default {
     preDeleteActiveEffect,
     preUpdateActiveEffect,
     doCreateActiveEffect,
-    doDeleteActiveEffect
+    doDeleteActiveEffect,
+    getConditions
 };

@@ -36,7 +36,7 @@ async function deleteEmbeddedDocuments(document, type, ids, options, {forceGM = 
     if (hasPermission && !forceGM) {
         documents = await document.deleteEmbeddedDocuments(type, ids, options);
     } else {
-        const uuids = await queryUtils.query('cat.deleteEmbeddedDocuments', queryUtils.gmUser(), {uuid: document.uuid, type, ids, options});
+        const uuids = await queryUtils.query('deleteEmbeddedDocuments', queryUtils.gmUser(), {uuid: document.uuid, type, ids, options});
         if (!uuids) return;
         documents = (await Promise.all(uuids.map(async uuid => fromUuid(uuid)))).filter(i => i);
     }
@@ -47,9 +47,18 @@ async function deleteDocument(document, {options, forceGM = false} = {}) {
     if (hasPermission && !forceGM) {
         await document.delete(options);
     } else {
-        await queryUtils.query('cat.deleteDocument', queryUtils.gmUser(), {uuid: document.uuid, options});
+        await queryUtils.query('deleteDocument', queryUtils.gmUser(), {uuid: document.uuid, options});
     }
     return document;
+}
+async function createEmbeddedDocuments(document, type, updates, options) {
+    const hasPermission = queryUtils.hasPermission(document, game.user.id);
+    if (hasPermission) {
+        return await document.createEmbeddedDocuments(type, updates, options);
+    } else {
+        const uuids = await queryUtils.query('createEmbeddedDocuments', queryUtils.gmUser(), {uuid: document.uuid, type, updates, options});
+        return await Promise.all(uuids.map(async uuid => await fromUuid(uuid)));
+    }
 }
 export default {
     getRules,
@@ -58,5 +67,6 @@ export default {
     getVersion,
     getSavedCastData,
     deleteEmbeddedDocuments,
-    deleteDocument
+    deleteDocument,
+    createEmbeddedDocuments
 };

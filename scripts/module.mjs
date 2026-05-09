@@ -64,8 +64,8 @@ Hooks.once('ready', () => {
         integration.phb.registerAutomations();
         integration.phb.registerScales();
     }
-    if (game.modules.get('ddb-importer')?.active) {
-        integration.ddbi.registerAutomations();
-        integration.ddbi.registerScales();
-    }
+});
+Hooks.once('ddb-importer.compendiumCreationComplete', () => {
+    integration.ddbi.registerAutomations();
+    integration.ddbi.registerScales();
 });

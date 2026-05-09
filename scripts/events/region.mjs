@@ -34,6 +34,8 @@ function preCreateRegion(region, updates, options, userId) {
     };
     const regionMacros = activity.flags.cat?.placed?.region?.macros;
     if (regionMacros) sourceUpdates.flags.cat.macros = regionMacros;
+    const embeddedMacros = activity.flags.cat?.placed?.region?.embeddedMacros;
+    if (embeddedMacros) sourceUpdates.flags.cat.embeddedMacros = embeddedMacros;
     const visibility = activity.flags.cat?.placed?.region?.visibility;
     if (visibility) sourceUpdates.flags.cat.visibility = visibility;
     region.updateSource(sourceUpdates);

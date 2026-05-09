@@ -1,4 +1,4 @@
-import {documentUtils} from '../utilities/_module.mjs';
+import {documentUtils, genericUtils} from '../utilities/_module.mjs';
 function getCastData(actor) {
     return actor.flags.cat?.castData;
 }
@@ -38,6 +38,27 @@ function getBestAbility(actor, abilities) {
         return actor.system.abilities[key].mod > actor.system.abilities[best].mod ? key : best;
     });
 }
+function checkTrait(actor, type, trait) {
+    return actor.system.traits?.[type]?.value?.has(trait);
+}
+function getEffectByStatusID(actor, id) {
+    return getEffects(actor).find(i => i.id === CONFIG.statusEffects.find(j => j.id === id)?._id);
+}
+async function applyConditions(actor, conditions, {overlay = false} = {}) {
+    const updates = [];
+    await Promise.all(conditions.map(async id => {
+        if (checkTrait(actor, 'ci', id)) return;
+        const cEffect = getEffectByStatusID(actor, id);
+        if (cEffect) return;
+        // eslint-disable-next-line no-undef
+        const effectImplementation = await ActiveEffect.implementation.fromStatusEffect(id);
+        if (!effectImplementation) return;
+        const effectData = effectImplementation.toObject();
+        if (overlay) genericUtils.setProperty(effectData, 'flags.core.overlay', true);
+        updates.push(effectData);
+    }));
+    if (updates.length) return await documentUtils.createEmbeddedDocuments(actor, 'ActiveEffect', updates, {keepId: true});
+}
 export default {
     getCastData,
     getEffects,
@@ -49,5 +70,8 @@ export default {
     getTokens,
     getFirstToken,
     getEffectByIdentifier,
-    getBestAbility
+    getBestAbility,
+    checkTrait,
+    getEffectByStatusID,
+    applyConditions
 };
