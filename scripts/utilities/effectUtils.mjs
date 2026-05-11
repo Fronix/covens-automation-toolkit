@@ -22,7 +22,7 @@ function getConditions(effect) {
         'macro.StatusEffect',
         'StatusEffect'
     ];
-    effect.changes.forEach(element => {
+    effect.system.changes.forEach(element => {
         if (validKeys.includes(element.key)) conditions.add(element.value.toLowerCase());
     });
     const effectConditions = effect.flags.cat?.conditions;

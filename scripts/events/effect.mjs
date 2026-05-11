@@ -18,7 +18,7 @@ async function createActiveEffect(effect, options, userId) {
     await new Events.EffectEvent(effect, constants.effectPasses.created, {options}).run();
     await auraEvents.effect(effect, options);
     if (effect.statuses.size) await specialDuration.specialDurationConditions(effect);
-    if (effect.parent instanceof Actor && effect.changes.some(change => change.key.includes('system.attributes.movement.'))) await specialDuration.specialDurationZeroSpeed(effect.parent);
+    if (effect.parent instanceof Actor && effect.system.changes.some(change => change.key.includes('system.attributes.movement.'))) await specialDuration.specialDurationZeroSpeed(effect.parent);
 }
 async function deleteActiveEffect(effect, options, userId) {
     if (!queryUtils.isTheGM()) return;
