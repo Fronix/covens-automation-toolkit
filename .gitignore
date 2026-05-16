@@ -1,6 +1,5 @@
 
 dist/
-module.json
 node_modules/
 foundry-config.yaml
 foundry
