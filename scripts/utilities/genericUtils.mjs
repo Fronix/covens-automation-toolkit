@@ -25,6 +25,13 @@ function translate(key) {
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+function keySort(key) {
+    return function(a, b) {
+        if (a[key] < b[key]) return -1;
+        if (a[key] > b[key]) return 1;
+        return 0;
+    };
+}
 export default {
     setProperty,
     getProperty,
@@ -33,5 +40,6 @@ export default {
     mergeObject,
     convertDistance,
     translate,
-    sleep
+    sleep,
+    keySort
 };
