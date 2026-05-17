@@ -60,6 +60,12 @@ async function createEmbeddedDocuments(document, type, updates, options) {
         return await Promise.all(uuids.map(async uuid => await fromUuid(uuid)));
     }
 }
+async function update(document, updates, options) {
+
+}
+async function updateEmbeddedDocuments(document, type, updates, options) {
+
+}
 export default {
     getRules,
     getSource,
@@ -68,5 +74,7 @@ export default {
     getSavedCastData,
     deleteEmbeddedDocuments,
     deleteDocument,
-    createEmbeddedDocuments
+    createEmbeddedDocuments,
+    update,
+    updateEmbeddedDocuments
 };

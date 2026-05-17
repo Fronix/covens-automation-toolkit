@@ -123,6 +123,7 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     await documentUtils.deleteDocument(item);
     let document;
     if (actor) {
+
         document = (await documentUtils.createEmbeddedDocuments(actor, 'Item', [documentData], {keepId: true}))?.[0];
     } else {
         document = await Item.create(documentData, {keepId: true}); //May need to GM socket this.
@@ -131,6 +132,41 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     if (!skipEvent && actor) await itemEvents.itemMedkit(document);
     if (openSheet) await document.sheet.render(true);
 }
+async function updateScales(item, {automation} = {}) {
+    automation ??= getCurrentAutomation(item);
+    if (!automation) return;
+    const rules = documentUtils.getRules(item);
+    const classIdentifier = getConfigValue(item, 'classIdentifier');
+    const subclassIdentifier = getConfigValue(item, 'subclassIdentifier');
+    const updates = [];
+    automation.scales.forEach(scaleData => {
+        let scale = constants.scales.getScaleByIdentifier(scaleData.identifier, {rules, source: scaleData.source, classIdentifier});
+        let targetIdentifier = classIdentifier;
+        if (!scale && subclassIdentifier) {
+            scale = constants.scales.getScaleByIdentifier(scaleData.identifier, {rules, source: automation.source, classIdentifier: subclassIdentifier});
+            targetIdentifier = subclassIdentifier;
+        }
+        if (!scale) return;
+        const classItem = item.actor.classes[targetIdentifier];
+        if (!classItem) return;
+        const scaleValue = classItem.advancement.byType.ScaleValue.find(i => i.configuration.identifier === scale.identifier);
+        if (scaleValue && scaleValue.type === scale.data.type) return;
+        const advancementKey = scaleValue ? scaleValue.id : (scale.data._id ?? foundry.utils.randomID());
+        const classData = classItem.toObject();
+        classData.system.advancement[advancementKey] = scale.data;
+        if (scaleValue) delete classData.system.advancement[advancementKey]._id;
+        const change = {_id: classItem.id, 'system.advancement': classData.system.advancement};
+        const currentUpdate = updates.find(i => i._id === classItem.id);
+        if (currentUpdate) {
+            genericUtils.mergeObject(currentUpdate, change);
+        } else {
+            updates.push(change);
+        }
+    });
+    if (updates.length) {
+        await documentUtils.updateEmbeddedDocuments(item.actor, 'Item', updates);
+    }
+}
 export default {
     getCurrentAutomation,
     getAutomationStatus,
@@ -138,5 +174,6 @@ export default {
     getConfigValue,
     getAutomationSources,
     getAppliedOrPreferedAutomation,
-    updateItem
+    updateItem,
+    updateScales
 };

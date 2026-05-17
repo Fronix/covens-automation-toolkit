@@ -40,6 +40,11 @@ export let test = {
             macro: nearby,
             priority: 50,
             distance: 60
+        },
+        {
+            pass: 'actorRollFinished',
+            macro: use,
+            priority: 50
         }
     ],
     move: [
