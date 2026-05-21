@@ -9,7 +9,7 @@
     </button>
 </header>
 <div id="dialog-app" class="cat-dialog-body standard-form scrollable">
-    {{#if content}}<p class="cat-dialog-content">{{{localize content}}}</p>{{/if}}
+    {{#if content}}<div class="cat-dialog-content">{{{localize content}}}</div>{{/if}}
     {{#each inputs}}
         {{#if useHelper}}
             {{#each options}}
@@ -19,12 +19,15 @@
             <div class="cat-body-buttons {{#if displayAsRows}}cat-stacked{{/if}}">
                 {{#each options}}
                     <button type="submit" class="cat-body-button" data-action="confirm" id="i{{@../index}}j{{@index}}" name="{{name}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}{{#if reference}} data-reference-tooltip="{{reference}}"{{/if}}>
-                        {{#if image}}<img class="button-image" src="{{image}}">{{/if}}
+                        {{#if image}}<img class="button-image{{#if imageClass}} {{imageClass}}{{/if}}" src="{{image}}">{{/if}}
                         <span>{{localize label}}</span>
                     </button>
                 {{/each}}
             </div>
         {{else if isCheckbox}}
+            {{#if showCounter}}
+                <div class="cat-budget-counter{{#if (gte currentNum totalMax)}} at-max{{/if}}">{{currentNum}}/{{totalMax}}</div>
+            {{/if}}
             {{#each options}}
                 <div class="form-group">
                     <label for="i{{@../index}}j{{@index}}">
@@ -49,6 +52,9 @@
                 </div>
             </div>
         {{else if isSelectAmount}}
+            {{#if totalMax}}
+                <div class="cat-budget-counter{{#if atMax}} at-max{{/if}}">{{currentSpent}}/{{totalMax}}</div>
+            {{/if}}
             {{#each options}}
                 <div class="form-group">
                     <label for="i{{@../index}}j{{@index}}">
@@ -62,6 +68,52 @@
                             {{/each}}
                         </select>
                     </div>
+                </div>
+            {{/each}}
+        {{else if isDice}}
+            {{#if showCounter}}
+                <div class="cat-budget-counter">{{currentNum}}/{{totalMax}}</div>
+            {{/if}}
+            <div class="cat-dice-picker" data-total-max="{{totalMax}}">
+                {{#each groups}}
+                    <div class="cat-dice-group">
+                        <header class="cat-dice-group-header">
+                            {{#if icon}}<img class="cat-dmg-icon" src="{{icon}}">{{/if}}
+                            {{#if label}}<span class="cat-dice-type-label">{{label}}</span>{{/if}}
+                            <strong class="cat-dice-subtotal">{{total}}</strong>
+                        </header>
+                        <ol class="dice-rolls">
+                            {{#each dice}}
+                                <li class="cat-die-cell">
+                                    <input type="checkbox" hidden id="d-{{name}}" name="{{name}}">
+                                    <label for="d-{{name}}" class="roll d{{faces}}{{#unless isStandard}} cat-die-generic{{/unless}}{{#if isMin}} min{{/if}}{{#if isMax}} max{{/if}}" data-tooltip="d{{faces}}">{{result}}</label>
+                                </li>
+                            {{/each}}
+                        </ol>
+                    </div>
+                {{/each}}
+                {{#if grandTotal}}
+                    <div class="cat-dice-grand-total"><span>{{localize 'CAT.Dialog.Total'}}</span><strong>{{grandTotal}}</strong></div>
+                {{/if}}
+            </div>
+        {{else if isCombobox}}
+            {{#each options}}
+                <div class="form-group{{#unless label}} cat-no-label{{/unless}}">
+                    {{#if label}}<label for="i{{@../index}}j{{@index}}">{{{localize label}}}</label>{{/if}}
+                    <div class="form-fields">
+                        <cat-combobox input-id="i{{@../index}}j{{@index}}" name="{{name}}" value="{{value}}"{{#if placeholder}} placeholder="{{placeholder}}"{{/if}}>
+                            {{#each options}}
+                                <option value="{{value}}" data-image="{{image}}"{{#if tag}} data-tag="{{tag}}"{{/if}}>{{label}}</option>
+                            {{/each}}
+                        </cat-combobox>
+                    </div>
+                </div>
+            {{/each}}
+        {{else if isComboboxMulti}}
+            {{#each options}}
+                <div class="form-group cat-multi-combobox-group{{#unless label}} cat-no-label{{/unless}}">
+                    {{#if label}}<label for="i{{@../index}}j{{@index}}">{{{localize label}}}</label>{{/if}}
+                    <cat-multi-combobox input-id="i{{@../index}}j{{@index}}" name="{{name}}"{{#if amounts}} amounts{{/if}}{{#if maxTotal}} max-total="{{maxTotal}}"{{/if}}{{#if placeholder}} placeholder="{{placeholder}}"{{/if}}>{{#each options}}<option value="{{value}}" data-image="{{image}}" data-weight="{{weight}}"{{#if max}} data-max="{{max}}"{{/if}}{{#if tag}} data-tag="{{tag}}"{{/if}}>{{label}}</option>{{/each}}</cat-multi-combobox>
                 </div>
             {{/each}}
         {{/if}}

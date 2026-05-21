@@ -58,9 +58,7 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     /** @this {DialogApp} */
     static async #onCloseAction() {
-        this.element?.classList.add('closing');
-        await new Promise(resolve => setTimeout(resolve, 200));
-        await this.close({animate: false});
+        this.submit(null);
     }
 
     /** @this {DialogApp} */
@@ -80,7 +78,7 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
     /**
      * @param {string} title - Window title (localization key).
      * @param {string} content - Header content (HTML or localization key).
-     * @param {Array} inputs - [type, fields[], options][]. Types: button, checkbox, radio, selectAmount, selectMany, selectOption, text, number, filePicker.
+     * @param {Array} inputs - [type, fields[], options][]. Types: button, checkbox, radio, selectAmount, selectMany, selectOption, combobox, text, number, filePicker.
      * @param {'yesNo'|'okCancel'|'ok'|'cancel'} [buttons]
      * @param {{id?: string, width?: number|string, height?: number|string}} [config]
      * @returns {Promise<object|null>}
@@ -94,7 +92,7 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             const windowId = ui.activeWindow?.window?.windowId;
             const renderOptions = windowId ? {force: true, window: {windowId}} : {force: true};
             dialog.render(renderOptions);
-            dialog.submit = async result => {
+            dialog.submit = result => {
                 resolve(result);
                 dialog.close();
             };
@@ -167,10 +165,42 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             case 'selectAmount': return this.#buildSelectAmount(fields, opts);
             case 'selectMany': return this.#buildSelectMany(fields, opts);
             case 'selectOption': return this.#buildSelectOption(fields, opts);
+            case 'combobox': return this.#buildCombobox(fields, opts);
+            case 'comboboxMulti': return this.#buildComboboxMulti(fields, opts);
             case 'text': return this.#buildText(fields);
             case 'number': return this.#buildNumber(fields);
             case 'filePicker': return this.#buildFilePicker(fields);
+            case 'dice': return this.#buildDice(fields, opts);
         }
+    }
+
+    #buildDice(fields, opts) {
+        const standardFaces = new Set([4, 6, 8, 10, 12, 20]);
+        const groups = new Map();
+        for (const f of fields) {
+            const key = f.typeLabel ?? '';
+            if (!groups.has(key)) groups.set(key, {label: key, icon: f.typeIcon, total: 0, dice: []});
+            const g = groups.get(key);
+            g.total += f.result;
+            g.dice.push({
+                name: f.name,
+                faces: f.faces,
+                result: f.result,
+                isStandard: standardFaces.has(f.faces),
+                isMin: f.result === 1,
+                isMax: f.result === f.faces
+            });
+        }
+        const grandTotal = fields.reduce((acc, f) => acc + f.result, 0);
+        return {
+            isDice: true,
+            totalMax: opts?.totalMax ?? 99,
+            showCounter: opts?.totalMax != null,
+            currentNum: 0,
+            grandTotal,
+            groups: Array.from(groups.values()),
+            options: fields.map(f => ({name: f.name, isChecked: false}))
+        };
     }
 
     #buildButton(fields, opts) {
@@ -181,6 +211,7 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                 label: f.label,
                 name: f.name,
                 image: f.options?.image,
+                imageClass: f.options?.imageClass,
                 tooltip: f.options?.tooltip,
                 reference: f.options?.reference
             }))
@@ -210,6 +241,7 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             isCheckbox: true,
             options,
             totalMax: opts?.totalMax ?? 99,
+            showCounter: opts?.totalMax != null,
             currentNum: options.filter(i => i.isChecked).length
         };
     }
@@ -284,6 +316,45 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
         };
     }
 
+    #buildCombobox(fields) {
+        return {
+            isCombobox: true,
+            options: fields.map(f => ({
+                label: f.label,
+                name: f.name,
+                value: f.options?.value ?? '',
+                placeholder: f.options?.placeholder ?? '',
+                options: (f.options?.options ?? []).map(o => ({
+                    value: o.value,
+                    label: o.label,
+                    image: o.image ?? '',
+                    tag: o.tag ?? ''
+                }))
+            }))
+        };
+    }
+
+    #buildComboboxMulti(fields) {
+        return {
+            isComboboxMulti: true,
+            options: fields.map(f => ({
+                label: f.label,
+                name: f.name,
+                placeholder: f.options?.placeholder ?? '',
+                amounts: !!f.options?.amounts,
+                maxTotal: f.options?.maxTotal ?? null,
+                options: (f.options?.options ?? []).map(o => ({
+                    value: o.value,
+                    label: o.label,
+                    image: o.image ?? '',
+                    tag: o.tag ?? '',
+                    weight: o.weight ?? 1,
+                    max: o.max ?? null
+                }))
+            }))
+        };
+    }
+
     #buildText(fields) {
         return {
             useHelper: true,
@@ -338,12 +409,30 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
         for (const i of clone.options) {
             i.currentMaxAmount = Math.floor((max + (i.currentAmount * i.weight)) / i.weight);
         }
+        clone.currentSpent = (clone.totalMax ?? 0) - max;
+        clone.atMax = clone.totalMax != null && clone.currentSpent >= clone.totalMax;
         return clone;
     }
 
     async _onChangeForm(formConfig, event) {
         super._onChangeForm(formConfig, event);
         const targetInput = event.target;
+        const dicePicker = targetInput.closest?.('.cat-dice-picker');
+        if (dicePicker && targetInput.type === 'checkbox') {
+            const totalMax = Number(dicePicker.dataset.totalMax);
+            if (!totalMax) return;
+            const checked = dicePicker.querySelectorAll('input[type=checkbox]:checked').length;
+            if (checked > totalMax) {
+                targetInput.checked = false;
+                return;
+            }
+            const counter = this.element?.querySelector('.cat-budget-counter');
+            if (counter) {
+                counter.textContent = `${checked}/${totalMax}`;
+                counter.classList.toggle('at-max', checked >= totalMax);
+            }
+            return;
+        }
         const ctx = this.#context;
         const idMatch = targetInput.id?.match(/i(\d+)j(\d+)/);
         if (!idMatch) return;
@@ -404,12 +493,18 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
     _onRender(context, options) {
         super._onRender(context, options);
         this.#enableDragging();
+        const counter = this.element?.querySelector('.cat-dialog-body .cat-budget-counter');
+        const header = this.element?.querySelector('.cat-dialog-header');
+        if (counter && header) header.insertBefore(counter, header.querySelector('.cat-dialog-detach'));
         if (options.isFirstRender) {
             this.bringToFront();
             const win = this.element.ownerDocument.defaultView ?? window;
             const w = this.element.offsetWidth || 400;
             const h = this.element.offsetHeight || 300;
             this.setPosition({left: (win.innerWidth - w) / 2, top: (win.innerHeight - h) / 2});
+            this.element.addEventListener('cat-resize', () => {
+                this.setPosition({width: 'auto', height: 'auto'});
+            });
         }
         for (const elem of this.element.querySelectorAll('.label-image[data-token-id]')) {
             const id = elem.dataset.tokenId;
@@ -438,10 +533,17 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
 export class DialogManager {
     #queue = Promise.resolve();
     async showDialog(dialogFunction, ...args) {
-        await this.#queue;
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const promise = dialogFunction(...args);
-        this.#queue = promise;
-        return promise;
+        const previous = this.#queue;
+        let releaseSlot;
+        this.#queue = new Promise(resolve => { releaseSlot = resolve; });
+        try {
+            await previous;
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return await dialogFunction(...args);
+        } finally {
+            releaseSlot();
+        }
     }
 }
+
+export const dialogQueue = new DialogManager();

@@ -1,4 +1,14 @@
 import {documentUtils, effectUtils} from '../utilities/_module.mjs';
+import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
+async function dialog({title, content, inputs, buttons, config}) {
+    return await DialogApp.dialog(title, content, inputs, buttons, config);
+}
+async function queuedDialog({title, content, inputs, buttons, config, reason}) {
+    return await dialogQueue.showDialog(async (...args) => {
+        if (reason) ui.notifications.info(reason);
+        return await DialogApp.dialog(...args);
+    }, title, content, inputs, buttons, config);
+}
 async function createEffects({uuid, effectDatas, effectOptions}) {
     const document = await fromUuid(uuid);
     if (!document) return;
@@ -24,17 +34,25 @@ async function createEmbeddedDocuments({uuid, type, updates, options}) {
     return documents.map(document => document.uuid);
 }
 function registerQueries() {
-    globalThis.CONFIG.queries.cat = {
+    const handlers = {
         createEffects,
         deleteEmbeddedDocuments,
         deleteDocument,
-        createEmbeddedDocuments
+        createEmbeddedDocuments,
+        dialog,
+        queuedDialog
     };
+    globalThis.CONFIG.queries.cat = handlers;
+    for (const [name, fn] of Object.entries(handlers)) {
+        globalThis.CONFIG.queries['cat.' + name] = fn;
+    }
 }
 export default {
     createEffects,
     deleteEmbeddedDocuments,
     deleteDocument,
     registerQueries,
-    createEmbeddedDocuments
+    createEmbeddedDocuments,
+    dialog,
+    queuedDialog
 };
