@@ -43,6 +43,10 @@ const settings = {
                 priority: 96
             }
         }
+    },
+    hideNames: {
+        type: Boolean,
+        default: false
     }
 };
 

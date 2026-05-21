@@ -51,6 +51,9 @@
       "HitDieLabel": "{className}: {remaining}/{max} {denomination}",
       "Use": "Use {itemName}?",
       "Total": "Total"
+    },
+    "Common": {
+      "Cover": "{amount} {cover}"
     }
   }
 }
