@@ -45,29 +45,27 @@ function getDamageConfig(wrapped, config) {
     });
     return rollConfig;
 }
+const activityTypes = [
+    'AttackActivity',
+    'DamageActivity',
+    'SaveActivity',
+    'HealActivity'
+];
 function patch(enabled) {
     if (enabled) {
         Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.AttackActivity.prototype.availableAbilities', {force: true});
         libWrapper.register('cat', 'dnd5e.documents.activity.AttackActivity.prototype.availableAbilities', availableAbilities, 'MIXED');
-        Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.AttackActivity.prototype.getDamageConfig', {force: true});
-        libWrapper.register('cat', 'dnd5e.documents.activity.AttackActivity.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
-        Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.DamageActivity.prototype.getDamageConfig', {force: true});
-        libWrapper.register('cat', 'dnd5e.documents.activity.DamageActivity.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
-        Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.SaveActivity.prototype.getDamageConfig', {force: true});
-        libWrapper.register('cat', 'dnd5e.documents.activity.SaveActivity.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
-        Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.HealActivity.prototype.getDamageConfig', {force: true});
-        libWrapper.register('cat', 'dnd5e.documents.activity.HealActivity.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
+        activityTypes.forEach(type => {
+            Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.' + type + '.prototype.getDamageConfig', {force: true});
+            libWrapper.register('cat', 'dnd5e.documents.activity.' + type + '.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
+        });
     } else {
         Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.AttackActivity.prototype.availableAbilities');
         libWrapper.unregister('cat', 'dnd5e.documents.activity.AttackActivity.prototype.availableAbilities');
-        Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.AttackActivity.prototype.getDamageConfig');
-        libWrapper.unregister('cat', 'dnd5e.documents.activity.AttackActivity.prototype.getDamageConfig');
-        Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.DamageActivity.prototype.getDamageConfig');
-        libWrapper.unregister('cat', 'dnd5e.documents.activity.DamageActivity.prototype.getDamageConfig');
-        Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.SaveActivity.prototype.getDamageConfig');
-        libWrapper.unregister('cat', 'dnd5e.documents.activity.SaveActivity.prototype.getDamageConfig');
-        Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.HealActivity.prototype.getDamageConfig');
-        libWrapper.unregister('cat', 'dnd5e.documents.activity.HealActivity.prototype.getDamageConfig');
+        activityTypes.forEach(type => {
+            Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.' + type + '.prototype.getDamageConfig');
+            libWrapper.unregister('cat', 'dnd5e.documents.activity.' + type + '.prototype.getDamageConfig');
+        });
     }
 }
 export default {
