@@ -1,5 +1,5 @@
 import {Logging} from '../lib/_module.mjs';
-import rollUtils from '../utilities/rollUtils.mjs';
+import {rollUtils} from '../utilities/_module.mjs';
 function formula(wrapped) {
     const parent = this.parent;
     if (!parent) return wrapped();
@@ -22,14 +22,14 @@ function formula(wrapped) {
         identifier = grandParent.system.identifier;
         document = grandParent;
     }
-    const targetItemType = targetItem?.type;
+    const targetItemType = targetItem.type;
     const originalFormula = wrapped();
     const alternateFormulas = [originalFormula];
     const rollModifiers = [];
     for (const item of actor.items) {
-        const altFormula = item.flags?.cat?.alternateFormula?.[identifier];
+        const altFormula = item.flags.cat?.alternateFormula?.[identifier];
         if (altFormula) alternateFormulas.push(altFormula);
-        const modGroup = item.flags?.cat?.rollModifiers;
+        const modGroup = item.flags.cat?.rollModifiers;
         if (modGroup) {
             const modFlagId = modGroup.byIdentifier?.[identifier];
             if (modFlagId) rollModifiers.push(...modFlagId);
@@ -48,7 +48,7 @@ function formula(wrapped) {
         }, {index: 0, maxValue: -Infinity}).index;
         bestFormula = alternateFormulas[highestIndex];
     }
-    if (rollModifiers.length > 0) {
+    if (rollModifiers.length) {
         const terms = Roll.parse(bestFormula);
         terms.forEach(term => {
             if (term.modifiers && Array.isArray(term.modifiers)) {
@@ -61,7 +61,6 @@ function formula(wrapped) {
     }
     return bestFormula;
 }
-// TODO: Fix cantrips, look into patching activities.
 function patch(enabled) {
     if (enabled) {
         Logging.addEntry('DEBUG', 'Patching: dnd5e.dataModels.shared.DamageData.prototype.formula', {force: true});
