@@ -1,4 +1,5 @@
 import {Logging} from '../lib/_module.mjs';
+import {default as dataModel} from './dataModel.mjs';
 function availableAbilities(wrapped) {
     const otherAbilities = this.flags?.cat?.otherAbilities ?? [];
     const allAbilities = [...wrapped(), ...otherAbilities];
@@ -17,23 +18,24 @@ function getDamageConfig(wrapped, config) {
     const actor = this.actor;
     if (!actor) return rollConfig;
     const identifier = targetItem.system.identifier + '|' + this.identifier;
-    const rollModifiers = [];
-    for (const item of actor.items) {
-        const modGroup = item.flags.cat?.rollModifiers;
-        if (modGroup) {
-            const modFlagId = modGroup.byIdentifier?.[identifier];
-            if (modFlagId) rollModifiers.push(...modFlagId);
-            const modFlagType = modGroup.byType?.[targetItem.type];
-            if (modFlagType) rollModifiers.push(...modFlagType);
-        }
-    }
-    if (!rollModifiers.length) return rollConfig;
     rollConfig.rolls.forEach(rollData => {
-        if (rollData.parts && Array.isArray(rollData.parts)) {
+        if (!rollData.parts) return;
+        const rollModifiers = new Set();
+        actor.items.forEach(item => {
+            const modifiersList = item.flags.cat?.rollModifiers;
+            if (modifiersList) {
+                modifiersList.forEach(modDef => {
+                    if (dataModel.isValidModifier(modDef, targetItem, identifier, {rollData}) && modDef.modifiers) {
+                        modDef.modifiers.forEach(m => rollModifiers.add(m));
+                    }
+                });
+            }
+        });
+        if (rollModifiers.size) {
             rollData.parts = rollData.parts.map(part => {
                 const terms = Roll.parse(part);
                 terms.forEach(term => {
-                    if (term.modifiers && Array.isArray(term.modifiers)) {
+                    if (term.modifiers) {
                         rollModifiers.forEach(mod => {
                             if (!term.modifiers.includes(mod)) term.modifiers.push(mod);
                         });
