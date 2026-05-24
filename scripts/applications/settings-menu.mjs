@@ -1,11 +1,8 @@
 import {MenuApp} from './_module.mjs';
-
-
 export default class SettingsMenu extends MenuApp {
     #catSettings = [];
     #menuSettings;
     #save = false;
-
     constructor(key) {
         let title = 'CAT.Settings.' + key.titleCase() + '.Name';
         let inputs = [];
@@ -23,7 +20,6 @@ export default class SettingsMenu extends MenuApp {
             default: setting.default,
             value: game.settings.get('cat', setting.key)
         };
-        console.log(entry);
         if (this.key === 'compendium') entry.type = 'compendium'; // Differentiate by compendium type? (actor vs item etc)
         else if (setting.choices) {
             entry.type = 'selectOption';
@@ -47,5 +43,4 @@ export default class SettingsMenu extends MenuApp {
         }
         super.close(options);
     }
-        
 }
