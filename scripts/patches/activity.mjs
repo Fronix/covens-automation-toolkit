@@ -6,6 +6,7 @@ function availableAbilities(wrapped) {
     if (!this.actor) return new Set(allAbilities); 
     const identifier = this.item?.system?.identifier;
     this.actor.items.forEach(item => {
+        if (item.type != 'feat') return;
         const abilities = item.flags?.cat?.alternateAbilities?.[identifier];
         if (abilities) allAbilities.push(...abilities);
     });
@@ -22,6 +23,7 @@ function getDamageConfig(wrapped, config) {
         if (!rollData.parts) return;
         const rollModifiers = new Set();
         actor.items.forEach(item => {
+            if (item.type != 'feat') return;
             const modifiersList = item.flags.cat?.rollModifiers;
             if (modifiersList) {
                 modifiersList.forEach(modDef => {

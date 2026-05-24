@@ -1,42 +1,79 @@
 import {Logging} from '../lib/_module.mjs';
-import {rollUtils} from '../utilities/_module.mjs';
+import {rollUtils, automationUtils} from '../utilities/_module.mjs';
 /*
-[
+item.flags.cat.rollModifiers = [
     {
         modifiers: ['x', 'min1'],
         restrictions: {
-            identifier: 'example'
-            type: 'spell',
-            property: ['verbal', 'material'],
-            school: 'evocation',
-            level: 0,
-            ability: 'int',
-            method: 'spell',
-            damageTypes: ['fire', 'force']
+            identifier: {
+                value: ['example']
+            },
+            type: {
+                value: ['spell', 'weapon'],
+                requireAll: false
+            },
+            property: {
+                value: ['verbal', 'material'],
+                requireAll: false
+            },
+            school: {
+                value: ['evocation', 'necromancy'],
+                requireAll: true
+            },
+            level: {
+                value: [0]
+            },
+            ability: {
+                value: ['int', 'wis'],
+                requireAll: false
+            },
+            method: {
+                value: ['spell', 'atwill'],
+                requireAll: false
+            },
+            damageTypes: {
+                configValue: 'damageTypes',
+                requireAll: false
+            }
         }
     }
 ]
+
+item.flags.cat.alternateFormula = {
+    value: '1d8 + @mod',
+    configValue: 'formula'
+}
+
 */
+function checkReq(requirement, itemData, targetItem, defaultRequireAll = true) {
+    if (!requirement) return true;
+    const reqValues = requirement.configValue ? (automationUtils.getConfig(targetItem, requirement.configValue) ?? []) : requirement.value;
+    const requireAll = requirement.requireAll ?? defaultRequireAll;
+    if (itemData instanceof Set) {
+        return requireAll ? reqValues.every(v => itemData.has(v))  : reqValues.some(v => itemData.has(v));
+    }
+    if (Array.isArray(itemData)) {
+        return requireAll ? reqValues.every(v => itemData.includes(v)) : reqValues.some(v => itemData.includes(v));
+    }
+    return requireAll ? reqValues.every(v => v === itemData) : reqValues.some(v => v === itemData);
+}
 function isValidModifier(modDef, targetItem, identifier, {rollData} = {}) {
     const reqs = modDef.restrictions;
     if (!reqs) return true;
-    if (reqs.identifier && reqs.identifier !== identifier) return false;
-    if (reqs.type && reqs.type !== targetItem.type) return false;
-    if (reqs.property) {
-        const hasAllProperties = reqs.property.every(p => targetItem.system.properties.has(p));
-        if (!hasAllProperties) return false;
-    }
+    if (!checkReq(reqs.identifier, identifier, targetItem, false)) return false;
+    if (!checkReq(reqs.type, targetItem.type, targetItem, false)) return false;
+    if (!checkReq(reqs.property, targetItem.system.properties, targetItem, true)) return false;
     if (targetItem.type === 'spell') {
-        if (reqs.school && reqs.school !== targetItem.system.school) return false;
-        if (reqs.level && reqs.level !== targetItem.system.level) return false;
-        if (reqs.ability && reqs.ability !== targetItem.system.ability) return false;
-        if (reqs.method && reqs.method !== targetItem.system.method) return false;
+        if (!checkReq(reqs.school, targetItem.system.school, targetItem, false)) return false;
+        if (!checkReq(reqs.level, targetItem.system.level, targetItem, false)) return false;
+        if (!checkReq(reqs.method, targetItem.system.method, targetItem, false)) return false;
+        if (!checkReq(reqs.ability, targetItem.system.ability, targetItem, false)) return false;
     }
-    if (reqs.classIdentifier && reqs.classIdentifier !== targetItem.system.classIdentifier) return false;
+    if (!checkReq(reqs.classIdentifier, targetItem.system.classIdentifier, targetItem, false)) return false;
     if (reqs.damageTypes) {
         if (!rollData) return false; 
-        const currentDamageType = rollData.options?.type;
-        if (!reqs.damageTypes.includes(currentDamageType)) return false;
+        const currentTypes = rollData.options?.types || [rollData.options?.type];
+        if (!checkReq(reqs.damageTypes, currentTypes, targetItem, false)) return false;
     }
     return true;
 }
@@ -66,8 +103,12 @@ function formula(wrapped) {
     const alternateFormulas = [originalFormula];
     const rollModifiers = new Set();
     actor.items.forEach(item => {
+        if (item.type != 'feat') return;
         const altFormula = item.flags.cat?.alternateFormula?.[identifier];
-        if (altFormula) alternateFormulas.push(altFormula);
+        if (altFormula) {
+            const resolvedFormula = altFormula.configValue ? automationUtils.getConfig(targetItem, altFormula.configValue) : altFormula.value;
+            if (resolvedFormula) alternateFormulas.push(formula);
+        }
         const modifiersList = item.flags.cat?.rollModifiers;
         if (modifiersList) {
             modifiersList.forEach(modDef => {
