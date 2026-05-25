@@ -25,7 +25,7 @@ function addFlags(fieldData) {
 }
 function modifySpecials(specKey, specials) {
     daeFieldBrowserFields.forEach(field => {
-        specials[field] = [new foundry.data.fields.StringField(), 0];
+        specials[field] = [new foundry.data.fields.StringField(), 'CUSTOM'];
     });
 }
 export default {
