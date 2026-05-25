@@ -68,6 +68,16 @@
         "Name": "Display Debug Logs",
         "Hint": "When enabled the console will show debug logs."
       }
+    },
+    "DAE": {
+      "CV": {
+        "Name": "{condition} Condition Vulnerability",
+        "Description": "Condition Vulnerability to {condition}, roll at disadvantage to save. 1/true for all saves, or a comma-separated list of abilities (e.g. str,dex)."
+      },
+      "CR": {
+        "Name": "{condition} Condition Resistance",
+        "Description": "Condition Resistance to {condition}, roll at advantage to save. 1/true for all saves, or a comma-separated list of abilities (e.g. str,dex)."
+      }
     }
   }
 }

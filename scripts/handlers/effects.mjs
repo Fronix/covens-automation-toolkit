@@ -40,8 +40,18 @@ async function removeConditions(effect) {
     });
     if (ids.length) return await documentUtils.deleteEmbeddedDocuments(parent, 'ActiveEffect', ids);
 }
+function applyActiveEffect(actor, change, current, delta, changes) {
+    if (change.key.startsWith('flags.cat.CR.') || change.key.startsWith('flags.cat.CV.')) {
+        const existing = genericUtils.getProperty(actor, change.key);
+        const newValue = existing ? String(existing) + ', ' + String(change.value) : String(change.value);
+        genericUtils.setProperty(actor, change.key, newValue);
+        changes[change.key] = newValue;
+        return true; 
+    }
+}
 export default {
     disableSpecialEffects,
     addConditions,
-    removeConditions
+    removeConditions,
+    applyActiveEffect
 };
