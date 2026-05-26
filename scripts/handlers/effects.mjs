@@ -49,9 +49,14 @@ function applyActiveEffect(actor, change, current, delta, changes) {
         return true; 
     }
 }
+function noAnimation(effect, options) {
+    if (!effect.flags.cat?.noAnimation) return;
+    options.animate = false;
+}
 export default {
     disableSpecialEffects,
     addConditions,
     removeConditions,
-    applyActiveEffect
+    applyActiveEffect,
+    noAnimation
 };
