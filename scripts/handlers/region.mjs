@@ -1,4 +1,4 @@
-import {activityUtils, actorUtils, documentUtils, genericUtils} from '../utilities/_module.mjs';
+import {activityUtils, actorUtils, documentUtils, genericUtils, regionUtils, workflowUtils} from '../utilities/_module.mjs';
 import {Logging} from '../lib/_module.mjs';
 function placed(region) {
     const originUuid = region.flags.dnd5e?.origin;
@@ -162,7 +162,7 @@ async function processRegionActivities(token, currentRegions, triggerType) {
             }
             const sourceActivity = await fromUuid(actConfig.uuid);
             if (!sourceActivity) continue;
-            //await myRollUtils.executeActivity(sourceActivity, token);
+            await workflowUtils.completeActivityUse(sourceActivity, [token], {atLevel: regionUtils.getCastData(region).castLevel});
         }
         if (requiresStampUpdate && inCombat) {
             const newProcessedArray = processedTokens.filter(pt => pt.id !== token.id);
