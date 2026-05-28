@@ -4,6 +4,8 @@ import {auraEvents} from '../events/_module.mjs';
 import specialDuration from '../mechanics/specialDuration.mjs';
 import {regions} from '../handlers/_module.mjs';
 async function moveToken(token, movement, options, user) {
+    console.log(movement);
+    // Attached regions or whatever....
     if (!queryUtils.isTheGM()) return;
     if (!token.actor) return;
     if (token.parent.id != canvas.scene.id) return;

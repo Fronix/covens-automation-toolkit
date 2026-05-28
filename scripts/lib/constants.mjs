@@ -90,7 +90,8 @@ const regionHooksNames = {
     createRegion: 'createRegion',
     updateRegion: 'updateRegion',
     deleteRegion: 'deleteRegion',
-    preCreateRegion: 'preCreateRegion'
+    preCreateRegion: 'preCreateRegion',
+    preUpdateRegion: 'preUpdateRegion'
 };
 const regionPasses = {
     created: 'created',
