@@ -1,18 +1,19 @@
 import {genericUtils, queryUtils, regionUtils} from '../utilities/_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
-import {auraEvents} from '../events/_module.mjs';
+import {auraEvents, regionEvents} from '../events/_module.mjs';
 import specialDuration from '../mechanics/specialDuration.mjs';
 import {regions} from '../handlers/_module.mjs';
 async function moveToken(token, movement, options, user) {
-    console.log(movement);
-    // Attached regions or whatever....
+    if (user.id != game.user.id) return;
+    const attachedRegions = token.attachments.regions;
+    const previousCoords = genericUtils.duplicate(movement.origin);
+    if (attachedRegions.size) attachedRegions.forEach(region => regionEvents.doRegionMove(region, previousCoords)); // Intentionally not awaited.
     if (!queryUtils.isTheGM()) return;
     if (!token.actor) return;
     if (token.parent.id != canvas.scene.id) return;
     const validTypes = ['npc', 'character', 'vehicle'];
     if (!validTypes.includes(token.actor.type)) return;
     const isFinalMovement = !movement.pending.waypoints.length;
-    const previousCoords = genericUtils.duplicate(movement.origin);
     const coords = genericUtils.duplicate(movement.destination);
     if (!previousCoords) return;
     const xDiff = token.width * token.parent.grid.size / 2;
@@ -48,13 +49,21 @@ async function moveToken(token, movement, options, user) {
         if (!teleport) enteredAndLeftRegions = throughRegions.filter(i => !leavingRegions.includes(i) && !enteringRegions.includes(i) && !stayingRegions.includes(i));
         await regions.updateRegionEffects(token, currentRegions);
         if (leavingRegions.length) {
+            await regions.processRegionActivities(token, Array.from(token.regions), constants.regionPasses.left);
             await new Events.RegionEvent(leavingRegions, constants.regionPasses.left, {tokens: [token]}).run();
         }
         if (enteringRegions.length) {
             await new Events.RegionEvent(enteringRegions, constants.regionPasses.enter, {tokens: [token]}).run();
+            await regions.processRegionActivities(token, Array.from(token.regions), constants.regionPasses.enter);
         }
-        if (stayingRegions.length) await new Events.RegionEvent(stayingRegions, constants.regionPasses.stay, {tokens: [token]}).run();
-        if (enteredAndLeftRegions.length) await new Events.RegionEvent(enteredAndLeftRegions, constants.regionPasses.passedThrough, {tokens: [token]}).run();
+        if (stayingRegions.length) {
+            await regions.processRegionActivities(token, Array.from(token.regions), constants.regionPasses.stay);
+            await new Events.RegionEvent(stayingRegions, constants.regionPasses.stay, {tokens: [token]}).run();
+        }
+        if (enteredAndLeftRegions.length) {
+            await regions.processRegionActivities(token, Array.from(token.regions), constants.regionPasses.passedThrough);
+            await new Events.RegionEvent(enteredAndLeftRegions, constants.regionPasses.passedThrough, {tokens: [token]}).run();
+        }
     }
     await specialDuration.specialDurationMove(token.actor);
 }

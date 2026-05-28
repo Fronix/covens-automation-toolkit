@@ -7,17 +7,24 @@ async function createRegion(region, options, userId) {
     await regions.regionEffects(region);
     await new Events.RegionEvent([region], constants.regionPasses.created, {options}).run();
 }
+async function doRegionMove(region, locationData) {
+    const regionTokens = regionUtils.getRegionMovementTokens(region, locationData);
+    await regions.processMovedRegionActivities(region, regionTokens.entered, constants.regionPasses.entered);
+    await regions.processMovedRegionActivities(region, regionTokens.exited, constants.regionPasses.exited);
+    await regions.processMovedRegionActivities(region, regionTokens.stayed, constants.regionPasses.stayed);
+    await regions.processMovedRegionActivities(region, regionTokens.through, constants.regionPasses.passedOver);
+    await new Events.RegionEvent([region], constants.regionPasses.entered, {locationData, tokens: regionTokens.entered}).run();
+    await new Events.RegionEvent([region], constants.regionPasses.exited, {locationData, tokens: regionTokens.exited}).run();
+    await new Events.RegionEvent([region], constants.regionPasses.stayed, {locationData, tokens: regionTokens.stayed}).run();
+    await new Events.RegionEvent([region], constants.regionPasses.passedOver, {locationData, tokens: regionTokens.through}).run();
+}
 async function updateRegion(region, updates, options, userId) {
-    console.log(options);
     if (userId != game.user.id) return;
     const spatialKeys = ['shapes', 'x', 'y', 'elevation', 'bottom', 'top'];
     const movedOrReshaped = spatialKeys.some(key => key in updates);
     if (movedOrReshaped) await regions.regionEffects(region);
     const locationData = options.cat?.oldLocation;
-    if (locationData) {
-        const regionTokens = regionUtils.getRegionMovementTokens(region, locationData);
-        console.log(regionTokens);
-    }
+    if (locationData) await doRegionMove(region, locationData);
     await new Events.RegionEvent([region], constants.regionPasses.updated, {options, updates}).run();
 }
 async function deleteRegion(region, options, userId) {
@@ -49,5 +56,6 @@ export default {
     deleteRegion,
     createWorkflowRegion,
     preCreateRegion,
-    preUpdateRegion
+    preUpdateRegion,
+    doRegionMove
 };

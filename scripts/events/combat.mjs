@@ -1,5 +1,6 @@
 import {constants, Events} from '../lib/_module.mjs';
 import {queryUtils} from '../utilities/_module.mjs';
+import {regions} from '../handlers/_module.mjs';
 async function updateCombat(combat, updates, context) {
     if (!queryUtils.isTheGM()) return;
     if (!updates.turn && !updates.round) return;
@@ -14,12 +15,15 @@ async function updateCombat(combat, updates, context) {
     const currentToken = currentCombatant.token;
     const previousToken = previousCombatant?.token;
     if (previousToken) {
+        await regions.processRegionActivities(previousToken, Array.from(previousToken.regions), 'turnEnd', {inCombat: true, currentRound: previousRound, currentTurn: previousToken});
         await new Events.CombatEvent(combat, constants.combatPasses.turnStart, previousToken, {context, combatant: previousCombatant, round: previousRound, turn: previousTurn}).run();
     }
     if (currentToken) {
         for (let token of currentToken.parent.tokens.filter(i => i.actor && ['npc', 'character'].includes(i.actor.type))) {
+            await regions.processRegionActivities(previousToken, Array.from(currentToken.regions), 'everyTurn', {inCombat: true, currentRound, currentTurn});
             await new Events.CombatEvent(combat, constants.combatPasses.everyTurn, token, {context, combatant: currentCombatant, round: currentRound, turn: currentTurn, previousCombatant, previousRound, previousTurn}).run();
         }
+        await regions.processRegionActivities(previousToken, Array.from(currentToken.regions), 'turnStart', {inCombat: true, currentRound, currentTurn});
         await new Events.CombatEvent(combat, constants.combatPasses.turnStart, currentToken, {context, combatant: currentCombatant, round: currentRound, turn: currentTurn, previousCombatant, previousRound, previousTurn}).run();
     }
 }

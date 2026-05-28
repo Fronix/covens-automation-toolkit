@@ -1,4 +1,4 @@
-import {activityUtils, actorUtils, documentUtils, genericUtils, regionUtils, workflowUtils} from '../utilities/_module.mjs';
+import {activityUtils, actorUtils, documentUtils, genericUtils, regionUtils, tokenUtils, workflowUtils} from '../utilities/_module.mjs';
 import {Logging} from '../lib/_module.mjs';
 function placed(region) {
     const originUuid = region.flags.dnd5e?.origin;
@@ -27,24 +27,8 @@ function placed(region) {
     region.updateSource(sourceUpdates);
 }
 async function updateRegionEffects(token, currentRegions = []) {
-    const groupedRegions = currentRegions.reduce((acc, region) => {
-        const identifier = documentUtils.getIdentifier(region);
-        const castData = documentUtils.getSavedCastData(region);
-        if (!acc[identifier]) acc[identifier] = [];
-        acc[identifier].push({region, castData});
-        return acc;
-    }, {});
-    const winningRegionsInfo = Object.values(groupedRegions).map(group => {
-        if (group.length === 1) return group[0];
-        const maxLevel = Math.max(...group.map(i => i.castData.castLevel));
-        const maxDC = Math.max(...group.map(i => i.castData.saveDC));
-        const maxDCGroup = group.find(i => i.castData.saveDC === maxDC);
-        if (maxDCGroup.castData.castLevel === maxLevel) {
-            return maxDCGroup;
-        } else {
-            return group.find(i => i.castData.castLevel === maxLevel);
-        }
-    });
+    const groupedRegions = getGroupedRegions(currentRegions);
+    const winningRegionsInfo = Object.values(groupedRegions).map(getWinningRegionData);
     const desiredEffects = (await Promise.all(
         winningRegionsInfo.map(async info => {
             const {region, castData} = info;
@@ -119,69 +103,140 @@ async function regionEffects(region, isDelete = false) {
         return await updateRegionEffects(token, Array.from(currentRegions));
     }));
 }
-async function processRegionActivities(token, currentRegions, triggerType) {
-    if (!currentRegions.length) return;
-    const groupedRegions = currentRegions.reduce((acc, region) => {
-        const activities = region.flags.cat?.activities;
-        if (!activities?.length) return acc;
+function getGroupedRegions(regions) {
+    const regionArray = Array.isArray(regions) ? regions : Array.from(regions);
+    return regionArray.reduce((acc, region) => {
         const identifier = documentUtils.getIdentifier(region);
         const castData = documentUtils.getSavedCastData(region);
         if (!acc[identifier]) acc[identifier] = [];
         acc[identifier].push({region, castData});
         return acc;
     }, {});
-    if (!Object.keys(groupedRegions).length) return;
-    const winningRegions = Object.values(groupedRegions).map(group => {
-        if (group.length === 1) return group[0].region;
-        const maxLevel = Math.max(...group.map(i => i.castData.castLevel));
-        const maxDC = Math.max(...group.map(i => i.castData.saveDC));
-        const maxDCGroup = group.find(i => i.castData.saveDC === maxDC);
-        if (maxDCGroup.castData.castLevel === maxLevel) {
-            return maxDCGroup.region;
-        } else {
-            return group.find(g => g.castData.castLevel === maxLevel).region;
-        }
-    });
+}
+function getWinningRegionData(group) {
+    if (!group?.length) return;
+    if (group.length === 1) return group[0];
+    const maxLevel = Math.max(...group.map(i => i.castData.castLevel));
+    const maxDC = Math.max(...group.map(i => i.castData.saveDC));
+    const maxDCGroup = group.filter(i => i.castData.saveDC === maxDC);
+    return maxDCGroup.find(i => i.castData.castLevel === maxLevel) || group.find(i => i.castData.castLevel === maxLevel);
+}
+function isValidDispositionTarget(sourceActivity, token, targetDisposition) {
+    if (!targetDisposition || targetDisposition === 'all') return true;
+    if (!sourceActivity?.actor) return false;
+    const actor = sourceActivity.actor;
+    const creatorToken = actorUtils.getFirstToken(actor);
+    const creatorDisposition = creatorToken?.disposition ?? actor.prototypeToken?.disposition;
+    const isEnemy = tokenUtils.isEnemy(creatorToken, token, {dispositionA: creatorDisposition});
+    if (targetDisposition === 'ally' && isEnemy) return false;
+    if (targetDisposition === 'enemy' && !isEnemy) return false;
+    return true;
+}
+function getCombatData(token) {
     const combat = token.combatant?.combat;
-    const inCombat = !!combat;
-    const currentRound = inCombat ? combat.round : null;
-    const currentTurn = inCombat ? combat.turn : null;
+    return {
+        inCombat: !!combat,
+        currentRound: combat ? combat.round : null,
+        currentTurn: combat ? combat.turn : null
+    };
+}
+function isStampedThisTurn(stamps, tokenId, combatData) {
+    if (!combatData.inCombat || !stamps?.length) return false;
+    const record = stamps.find(pt => pt.id === tokenId);
+    return record && record.round === combatData.currentRound && record.turn === combatData.currentTurn;
+}
+async function processRegionActivities(token, currentRegions, triggerType, {combatData} = {}) {
+    Logging.addEntry('DEBUG', 'Processing region activities for pass ' + triggerType + ' for ' + token.name);
+    if (!currentRegions.length) return;
+    const groupedRegions = getGroupedRegions(currentRegions);
+    if (!Object.keys(groupedRegions).length) return;
+    const winningRegions = Object.values(groupedRegions).map(group => getWinningRegionData(group).region);
+    combatData ??= getCombatData(token);
     const regionsToUpdate = [];
-    await Promise.all(winningRegions.map(async region => {
-        const activitiesConfig = region.flags.cat.activities;
+    for (const region of winningRegions) {
+        const activitiesConfig = region.flags.cat?.activities;
+        if (!activitiesConfig?.length) continue;
         const matchedActivities = activitiesConfig.filter(act => act.triggers?.includes(triggerType));
-        if (!matchedActivities.length) return;
-        const processedTokens = region.flags?.cat?.processedTokens || [];
+        if (!matchedActivities.length) continue;
+        const processedTokens = region.flags.cat?.processedTokens || [];
         let requiresStampUpdate = false;
         for (const actConfig of matchedActivities) {
+            const sourceActivity = await fromUuid(actConfig.uuid);
+            if (!isValidDispositionTarget(sourceActivity, token, actConfig.disposition)) continue;
             const isOncePerTurn = actConfig.oncePerTurn !== false; 
-            if (isOncePerTurn && inCombat) {
-                const existingRecord = processedTokens.find(pt => pt.id === token.id);
-                if (existingRecord && existingRecord.round === currentRound && existingRecord.turn === currentTurn) continue; 
+            if (isOncePerTurn && combatData.inCombat) {
+                if (isStampedThisTurn(processedTokens, token.id, combatData)) continue;
                 requiresStampUpdate = true;
             }
-            const sourceActivity = await fromUuid(actConfig.uuid);
-            if (!sourceActivity) continue;
             await workflowUtils.completeActivityUse(sourceActivity, [token], {atLevel: regionUtils.getCastData(region).castLevel});
         }
-        if (requiresStampUpdate && inCombat) {
+        if (requiresStampUpdate && combatData.inCombat) {
             const newProcessedArray = processedTokens.filter(pt => pt.id !== token.id);
             newProcessedArray.push({
                 id: token.id,
-                round: currentRound,
-                turn: currentTurn
+                round: combatData.currentRound,
+                turn: combatData.currentTurn
             });
             regionsToUpdate.push({
                 _id: region.id,
                 'flags.cat.processedTokens': newProcessedArray
             });
         }
-    }));
+    }
     if (regionsToUpdate.length) await documentUtils.updateEmbeddedDocuments(token.parent, 'Region', regionsToUpdate);
+}
+async function processMovedRegionActivities(region, tokens, triggerType) {
+    Logging.addEntry('DEBUG', 'Processing region activities for pass ' + triggerType + ' for ' + region.name);
+    if (!tokens.size) return;
+    const activitiesConfig = region.flags.cat?.activities;
+    if (!activitiesConfig?.length) return;
+    const matchedActivities = activitiesConfig.filter(act => act.triggers?.includes(triggerType));
+    if (!matchedActivities.length) return;
+    const identifier = documentUtils.getIdentifier(region);
+    const movingCastData = documentUtils.getSavedCastData(region);
+    let processedTokens = region.flags.cat?.processedTokens || [];
+    let requiresStampUpdate = false;
+    for (const token of tokens) {
+        const combatData = getCombatData(token);
+        const overlappingRegions = new Set(token.regions);
+        overlappingRegions.add(region);
+        const groupedOverlap = getGroupedRegions(overlappingRegions);
+        const identicalGroup = groupedOverlap[identifier] ?? [];
+        const winningRegionData = getWinningRegionData(identicalGroup);
+        if (winningRegionData?.region.id !== region.id) continue;
+        let alreadyProcessed = false;
+        if (combatData.inCombat) {
+            identicalGroup.forEach(info => {
+                const identicalRegion = info.region;
+                const stamps = identicalRegion.id === region.id ? processedTokens : (identicalRegion.flags.cat?.processedTokens || []);
+                if (isStampedThisTurn(stamps, token.id, combatData)) alreadyProcessed = true;
+            });
+        }
+        if (alreadyProcessed) continue;
+        let tokenGotStamped = false;
+        for (const actConfig of matchedActivities) {
+            const sourceActivity = await fromUuid(actConfig.uuid);
+            if (!isValidDispositionTarget(sourceActivity, token, actConfig.disposition)) continue;
+            const isOncePerTurn = actConfig.oncePerTurn;
+            if (isOncePerTurn && combatData.inCombat) tokenGotStamped = true;
+            await workflowUtils.completeActivityUse(sourceActivity, [token], {atLevel: movingCastData.castLevel});
+        }
+        if (tokenGotStamped) {
+            processedTokens = processedTokens.filter(pt => pt.id !== token.id);
+            processedTokens.push({
+                id: token.id,
+                round: combatData.currentRound,
+                turn: combatData.currentTurn
+            });
+            requiresStampUpdate = true;
+        }
+    }
+    if (requiresStampUpdate) await region.update({'flags.cat.processedTokens': processedTokens});
 }
 export default {
     placed,
     updateRegionEffects,
     regionEffects,
-    processRegionActivities
+    processRegionActivities,
+    processMovedRegionActivities
 };
