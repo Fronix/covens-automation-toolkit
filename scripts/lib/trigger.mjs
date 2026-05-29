@@ -1,4 +1,4 @@
-import {documentUtils, genericUtils} from '../utilities/_module.mjs';
+import {documentUtils, tokenUtils} from '../utilities/_module.mjs';
 import {constants, EmbeddedMacros} from '../lib/_module.mjs';
 class Trigger {
     constructor(document, pass, data) {
@@ -10,7 +10,6 @@ class Trigger {
         this.fnMacros = [];
         this.embeddedMacros = [];
         if (data && typeof data === 'object') Object.entries(data).forEach(([key, value]) => this[key] = value);
-        this.processEmbeddedMacro();
     }
     processFnMacros(data, type, pass) {
         this.fnMacros = data.map(i => constants.macros.getFnMacros(i.source, i.rules, i.identifier, type, pass)).filter(i => i);
@@ -23,14 +22,15 @@ class Trigger {
             this.fnMacros.forEach(fnMacro => {
                 fnMacro.macros = fnMacro.macros.map(macro => {
                     if (!macro.distance && !macro.configDistance) return macro;
+                    if (!this.distances || !this.targetToken) return false;
                     const distance = this.distances[this.targetToken.id];
                     if (distance < 0) return false;
                     const maxDistance = macro.configDistance ? documentUtils.getConfigValue(this.document, macro.configDistance) : macro.distance;
                     if (maxDistance < distance) return false;
                     const dispositions = macro.configDispositions ? documentUtils.getConfigValue(this.document, macro.configDispositions) : macro.dispositions;
                     if (dispositions) {
-                        const isAlly = this.token.disposition == this.targetToken.disposition;
-                        const isEnemy = this.token.disposition != this.targetToken.disposition;
+                        const isEnemy = tokenUtils.isEnemy(this.token, this.targetToken);
+                        const isAlly = !isEnemy;
                         if (!(dispositions.includes('all') || (dispositions.includes('ally') && isAlly) || (dispositions.includes('enemy') && isEnemy))) return false;
                     }
                     return macro;
@@ -41,8 +41,9 @@ class Trigger {
             this.embeddedMacros.forEach(embeddedMacro => {
                 embeddedMacro.macros = embeddedMacro.macros.map(macro => {
                     if (!macro.distance) return macro;
+                    if (!this.distances || !this.targetToken) return false;
                     const distance = this.distances[this.targetToken.id];
-                    if (distance < 0) return;
+                    if (distance < 0) return false;
                     const maxDistance = macro.distance;
                     if (maxDistance >= distance) return macro;
                     return false;
@@ -52,12 +53,13 @@ class Trigger {
     }
 }
 class RollTrigger extends Trigger {
-    constructor(document, pass, data, distances) {
-        super(document, pass, data, distances);
+    constructor(document, pass, data) {
+        super(document, pass, data);
         const fnMacroData = this.document.flags.cat?.macros?.roll ?? [];
         this.processFnMacros(fnMacroData, 'roll', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'roll';
+        this.processEmbeddedMacro();
     }
 }
 class MoveTrigger extends Trigger {
@@ -65,8 +67,9 @@ class MoveTrigger extends Trigger {
         super(document, pass, data);
         const fnMacroData = this.document.flags.cat?.macros?.move ?? [];
         this.processFnMacros(fnMacroData, 'move', pass);
-        this.processDistanceMacros();
+        if (this.distances) this.processDistanceMacros();
         this.type = 'move';
+        this.processEmbeddedMacro();
     }
 }
 class RegionTrigger extends Trigger {
@@ -75,6 +78,7 @@ class RegionTrigger extends Trigger {
         const fnMacroData = this.document.flags.cat?.macros?.region ?? [];
         this.processFnMacros(fnMacroData, 'region', pass);
         this.type = 'region';
+        this.processEmbeddedMacro();
     }
 }
 class EffectTrigger extends Trigger {
@@ -84,6 +88,7 @@ class EffectTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'effect', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'effect';
+        this.processEmbeddedMacro();
     }
 }
 class CombatTrigger extends Trigger {
@@ -93,6 +98,7 @@ class CombatTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'combat', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'combat';
+        this.processEmbeddedMacro();
     }
 }
 class AuraTrigger extends Trigger {
@@ -102,6 +108,7 @@ class AuraTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'aura', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'aura';
+        this.processEmbeddedMacro();
     }
 }
 class ItemTrigger extends Trigger {
@@ -111,6 +118,7 @@ class ItemTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'item', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'item';
+        this.processEmbeddedMacro();
     }
 }
 class RestTrigger extends Trigger {
@@ -120,6 +128,7 @@ class RestTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'rest', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'rest';
+        this.processEmbeddedMacro();
     }
 }
 class CheckTrigger extends Trigger {
@@ -129,6 +138,7 @@ class CheckTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'check', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'check';
+        this.processEmbeddedMacro();
     }
 }
 class SkillTrigger extends Trigger {
@@ -138,6 +148,7 @@ class SkillTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'skill', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'skill';
+        this.processEmbeddedMacro();
     }
 }
 class SaveTrigger extends Trigger {
@@ -147,6 +158,7 @@ class SaveTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'save', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'save';
+        this.processEmbeddedMacro();
     }
 }
 class ToolTrigger extends Trigger {
@@ -156,6 +168,7 @@ class ToolTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'tool', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'tool';
+        this.processEmbeddedMacro();
     }
 }
 class TimeTrigger extends Trigger {
@@ -165,6 +178,7 @@ class TimeTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'time', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'time';
+        this.processEmbeddedMacro();
     }
 }
 class SummonTrigger extends Trigger {
@@ -174,6 +188,7 @@ class SummonTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'summon', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'summon';
+        this.processEmbeddedMacro();
     }
 }
 class CalledTrigger extends Trigger {
@@ -183,6 +198,7 @@ class CalledTrigger extends Trigger {
         this.processFnMacros(fnMacroData, 'called', pass);
         if (this.distances) this.processDistanceMacros();
         this.type = 'called';
+        this.processEmbeddedMacro();
     }
 }
 export default {
