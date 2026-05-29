@@ -11,9 +11,14 @@ export function readyHooks() {
     Hooks.on(constants.miscHookNames.vaeCreateEffectButtons, vae.createEffectButton);
     // Sheet Rendering
     Hooks.on(constants.sheetHookNames.getHeaderControlsActiveEffectConfig, titlebar.appendHeaderControl);
+    Hooks.on(constants.sheetHookNames.getHeaderControlsActivitySheet, titlebar.appendHeaderControl);
     Hooks.on(constants.sheetHookNames.getHeaderControlsActorSheetV2, titlebar.appendHeaderControl);
+    Hooks.on(constants.sheetHookNames.getHeaderControlsCompendium, titlebar.appendHeaderControl);
     Hooks.on(constants.sheetHookNames.getHeaderControlsItemSheet5e, titlebar.appendHeaderControl);
+    Hooks.on(constants.sheetHookNames.getHeaderControlsLevelConfig, titlebar.appendHeaderControl);
     Hooks.on(constants.sheetHookNames.getHeaderControlsRegionConfig, titlebar.appendHeaderControl);
+    Hooks.on(constants.sheetHookNames.getHeaderControlsSceneConfig, titlebar.appendHeaderControl);
+    Hooks.on(constants.sheetHookNames.getHeaderControlsTokenConfig, titlebar.appendHeaderControl);
     // Workflow Events
     Hooks.on(constants.workflowHookNames.preTargeting, events.workflowEvents.preTargeting);
     Hooks.on(constants.workflowHookNames.preItemRoll, events.workflowEvents.preItemRoll);

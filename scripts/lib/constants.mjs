@@ -126,9 +126,14 @@ const itemHookNames = {
 };
 const sheetHookNames = {
     getHeaderControlsActiveEffectConfig: 'getHeaderControlsActiveEffectConfig',
+    getHeaderControlsActivitySheet: 'getHeaderControlsActivitySheet',
     getHeaderControlsActorSheetV2: 'getHeaderControlsActorSheetV2',
+    getHeaderControlsCompendium: 'getHeaderControlsCompendium',
     getHeaderControlsItemSheet5e: 'getHeaderControlsItemSheet5e',
-    getHeaderControlsRegionConfig: 'getHeaderControlsRegionConfig'
+    getHeaderControlsLevelConfig: 'getHeaderControlsLevelConfig',
+    getHeaderControlsRegionConfig: 'getHeaderControlsRegionConfig',
+    getHeaderControlsSceneConfig: 'getHeaderControlsSceneConfig',
+    getHeaderControlsTokenConfig: 'getHeaderControlsTokenConfig'
 };
 const restHookNames = {
     restCompleted: 'dnd5e.restCompleted'

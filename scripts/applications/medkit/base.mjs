@@ -24,8 +24,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     #hydrateState() {
-        this.#flags = foundry.utils.deepClone(this.#document.flags.cat ?? {});
-        this.#selectedSource = documentUtils.getSource(this.#document) ?? 'none';
+        this.#flags = foundry.utils.deepClone(this.#document.flags?.cat ?? {});
+        this.#selectedSource = this.#document.flags ? (documentUtils.getSource(this.#document) ?? 'none') : 'none';
         this.#rulesValue = this.#document.system?.source?.rules ?? null;
     }
 
@@ -46,7 +46,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             cancel: MedkitApp.#cancel,
             openEmbeddedMacros: MedkitApp.#openEmbeddedMacros,
             addDocument: MedkitApp.#addDocument,
-            removeDocument: MedkitApp.#removeDocument
+            removeDocument: MedkitApp.#removeDocument,
+            massApply: MedkitApp.#massApply
         }
     };
 
@@ -59,6 +60,25 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     static PARTS = {...MedkitApp.SHARED_PARTS};
 
+    // Scene / Level share an identical Automations / Embedded / Macros layout.
+    static SCENE_LEVEL_PARTS = {
+        ...MedkitApp.SHARED_PARTS,
+        automations: {template: 'modules/cat/templates/medkit/shared/mass-apply-tab.hbs'},
+        embedded: {template: 'modules/cat/templates/medkit/shared/embedded-tab.hbs'},
+        macros: {template: 'modules/cat/templates/medkit/shared/registered-macros.hbs'}
+    };
+
+    static SCENE_LEVEL_TABS = {
+        sheet: {
+            tabs: [
+                {id: 'automations', icon: 'fa-solid fa-download', label: 'CAT.MEDKIT.TABS.Automations'},
+                {id: 'embedded', icon: 'fa-solid fa-feather-pointed', label: 'CAT.MEDKIT.TABS.Embedded'},
+                {id: 'macros', icon: 'fa-solid fa-wand-magic-sparkles', label: 'CAT.MEDKIT.TABS.Macros'}
+            ],
+            initial: 'automations'
+        }
+    };
+
     static TABS = {sheet: {tabs: [], initial: undefined}};
 
     static KEEP_PATHS = [];
@@ -68,12 +88,13 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     get title() {
-        return _loc('CAT.MEDKIT.Title', {name: this.#document.name});
+        const name = this.#document.metadata?.label ?? this.#document.name ?? '';
+        return _loc('CAT.MEDKIT.Title', {name});
     }
 
     get isDirty() {
-        const committedFlags = this.#document.flags.cat ?? {};
-        const committedSource = documentUtils.getSource(this.#document) ?? 'none';
+        const committedFlags = this.#document.flags?.cat ?? {};
+        const committedSource = this.#document.flags ? (documentUtils.getSource(this.#document) ?? 'none') : 'none';
         const committedRules = this.#document.system?.source?.rules ?? null;
         return !foundry.utils.equals(this.#flags, committedFlags)
             || this.#selectedSource !== committedSource
@@ -84,6 +105,19 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     _getSelectedSource() { return this.#selectedSource; }
     _setSelectedSource(value) { this.#selectedSource = value; }
     _getRulesValue() { return this.#rulesValue; }
+
+    // Override per subclass to return iterable of Items for mass apply.
+    _getMassApplyItems() { return []; }
+
+    static _massApplyItemsFromScene(scene) {
+        const items = [];
+        for (const token of scene?.tokens ?? []) {
+            const actor = token.actor;
+            if (!actor) continue;
+            for (const item of actor.items) items.push(item);
+        }
+        return items;
+    }
 
     async _preparePartContext(partId, context) {
         const partContext = await super._preparePartContext(partId, context);
@@ -103,7 +137,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         context.document = this.#document;
-        context.label = this.#document.name;
+        context.label = this.#document.metadata?.label ?? this.#document.name ?? '';
         context.medkitStatus = constants.MEDKIT_STATUSES?.UNKNOWN;
         context.statusLabel = 'CAT.MEDKIT.STATUSES.Unavailable';
         context.isDirty = this.isDirty;
@@ -113,6 +147,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             {type: 'button', action: 'saveClose', label: 'CAT.MEDKIT.Footer.SaveClose', name: 'saveClose', icon: 'fa-solid fa-check', tooltip: 'CAT.MEDKIT.Footer.SaveCloseTooltip'},
             {type: 'button', action: 'save', label: 'CAT.MEDKIT.Footer.Save', name: 'save', icon: 'fa-solid fa-download', tooltip: 'CAT.MEDKIT.Footer.SaveTooltip'}
         ];
+        if ('macros' in this.constructor.PARTS) context.macroChoices = this._prepareRegisteredMacros().choices;
         return context;
     }
 
@@ -231,35 +266,52 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         return {choices, selected: selectedKeys, features};
     }
 
-    // TODO: source-filter populator deferred until CPR pattern / Chris confirms desired source list.
-    // TODO: 3rd-party badge gated by a not-yet-existing setting; column hidden via class.
-    _prepareRegisteredMacros() {
-        const identifier = documentUtils.getIdentifier(this.#document);
-        if (!identifier || !constants.macros) return {rows: [], sources: {all: _loc('CAT.MEDKIT.Macros.AllSources')}};
+    // Every globally registered FnMacro (deduped by source|identifier|rules) is a choice.
+    // flagPath selects which flag map holds the picked entries (e.g. 'macros' or 'placed.region.macros').
+    _prepareRegisteredMacros(flagPath = 'macros') {
+        if (!constants.macros) return {choices: []};
         const all = [...(constants.macros.fnMacros ?? []), ...(constants.macros.overwriteMacros ?? [])];
-        const matches = all.filter(m => m.identifier === identifier);
-        const rows = [];
-        for (const m of matches) {
-            for (const [event, entries] of Object.entries(m.macros ?? {})) {
-                for (const entry of entries) {
-                    rows.push({
-                        name: entry.macroName ?? entry.name ?? m.identifier,
-                        source: m.source,
-                        sourceLabel: constants.automations?.getSourceName?.(m.source) ?? m.source,
-                        event,
-                        pass: entry.pass ?? '-',
-                        rules: m.rules,
-                        rulesBadge: m.rules === '2014' ? 'legacy' : m.rules === '2024' ? 'modern' : null,
-                        isThirdParty: !!entry.thirdParty
-                    });
-                }
+        const sourceLabel = src => constants.automations?.getSourceName?.(src) ?? src;
+        const seen = new Map();
+        for (const m of all) {
+            const key = `${m.source}|${m.identifier}|${m.rules}`;
+            if (seen.has(key)) continue;
+            const events = Object.entries(m.macros ?? {}).filter(([, arr]) => arr?.length).map(([event]) => event);
+            seen.set(key, {
+                value: key,
+                source: m.source,
+                identifier: m.identifier,
+                rules: m.rules,
+                label: `${m.identifier}  [${sourceLabel(m.source)} · ${m.rules}]`,
+                events
+            });
+        }
+        const flagsMacros = foundry.utils.getProperty(this.#flags, flagPath) ?? {};
+        const pickedKeys = new Set();
+        for (const arr of Object.values(flagsMacros)) {
+            if (!Array.isArray(arr)) continue;
+            for (const entry of arr) pickedKeys.add(`${entry.source}|${entry.identifier}|${entry.rules ?? 'all'}`);
+        }
+        const choices = Array.from(seen.values())
+            .map(c => ({...c, selected: pickedKeys.has(c.value)}))
+            .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
+        return {choices};
+    }
+
+    // TODO: replace with Chris's forthcoming automationUtils.setItemMacros (or similar) when it lands.
+    _writeMacroSelection(compositeKeys, flagPath = 'macros') {
+        const lookup = new Map();
+        for (const c of this._prepareRegisteredMacros(flagPath).choices) lookup.set(c.value, c);
+        const next = {};
+        for (const key of compositeKeys) {
+            const choice = lookup.get(key);
+            if (!choice) continue;
+            const entry = {source: choice.source, rules: choice.rules, identifier: choice.identifier};
+            for (const event of choice.events) {
+                (next[event] ??= []).push(entry);
             }
         }
-        const sources = {all: _loc('CAT.MEDKIT.Macros.AllSources')};
-        for (const row of rows) {
-            if (!(row.source in sources)) sources[row.source] = row.sourceLabel;
-        }
-        return {rows, sources};
+        foundry.utils.setProperty(this.#flags, flagPath, next);
     }
 
     // CONFIGURABLE + GENERIC overlay UP_TO_DATE; nav pips surface those.
@@ -321,20 +373,16 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 const sourceData = this.#document._stats?.compendiumSource ? (await fromUuid(this.#document._stats.compendiumSource)) : null;
                 const updateData = sourceData?.toObject?.() ?? {};
                 genericUtils.setProperty(updateData, 'flags.cat', _del);
-                await this.#document.update(updateData, {diff: false});
+                await documentUtils.update(this.#document, updateData, {diff: false});
             } else {
-                const selectedAutomation = automationUtils.getAvailableAutomations(this.#document).find(a => a.source === this.#selectedSource);
-                if (selectedAutomation && this.constructor.updateDocument) {
-                    const selectedDocument = await fromUuid(selectedAutomation.uuid);
-                    if (selectedDocument) await this.constructor.updateDocument(this.#document, selectedDocument, selectedAutomation);
-                }
+                await automationUtils.updateItem(this.#document, {source: this.#selectedSource});
             }
         }
         const updates = {flags: {cat: this.#flags}};
-        if (this.#rulesValue !== this.#document.system?.source?.rules) {
+        if (this.#rulesValue !== (this.#document.system?.source?.rules ?? null)) {
             updates['system.source.rules'] = this.#rulesValue;
         }
-        await this.#document.update(updates);
+        await documentUtils.update(this.#document, updates);
         this.#hydrateState();
     }
 
@@ -406,6 +454,21 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     /** @this {MedkitApp} */
+    static async #massApply() {
+        const items = Array.from(await this._getMassApplyItems() ?? []);
+        if (!items.length) return;
+        const confirmed = await dialogUtils.confirm('CAT.MEDKIT.MassApply.ConfirmTitle', _loc('CAT.MEDKIT.MassApply.ConfirmPrompt'));
+        if (!confirmed) return;
+        for (const item of items) {
+            const source = documentUtils.getSource(item);
+            if (!source) continue;
+            await automationUtils.updateItem(item, {source});
+        }
+        ui.notifications.info(_loc('CAT.MEDKIT.MassApply.Done'));
+        this.render();
+    }
+
+    /** @this {MedkitApp} */
     static async #openEmbeddedMacros() {
         new EmbeddedMacrosApp({document: this.#document}).render(true);
     }
@@ -466,13 +529,14 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     async _onChangeForm(formConfig, event) {
         await super._onChangeForm(formConfig, event);
         const target = event.target;
-        if (!target?.name) return;
-        const name = target.name;
-        const inMultiCombobox = !!target.closest?.('cat-multi-combobox');
+        const name = target?.name ?? target?.getAttribute?.('name');
+        if (!name) return;
+        const multi = target.closest?.('cat-multi-combobox');
+        const inMultiCombobox = !!multi;
         let value;
         if (inMultiCombobox) {
-            // Hidden input value is JSON.stringify(values[]) (or [{value,amount}] in amounts mode).
-            try { value = target.value ? JSON.parse(target.value) : []; }
+            const raw = multi.querySelector('input[type="hidden"]')?.value ?? target.value;
+            try { value = raw ? JSON.parse(raw) : []; }
             catch { value = []; }
         } else if (target.type === 'checkbox') value = target.checked;
         else if (target.type === 'number') value = Number(target.value);
@@ -481,6 +545,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             this.#rulesValue = value;
         } else if (name === 'selectedSource') {
             this.#selectedSource = value;
+        } else if (inMultiCombobox && name === 'flags.cat.macros') {
+            this._writeMacroSelection(Array.isArray(value) ? value : []);
         } else if (name.startsWith('flags.cat.')) {
             const path = name.slice('flags.cat.'.length);
             // TODO: Generic feature picker (`flags.cat.config.generic`) expects {key: {config}} object,

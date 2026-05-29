@@ -7,27 +7,29 @@ function appendHeaderControl(app, controls) {
         const validTypes = ['ActiveEffect', 'Actor', 'Item'];
         if (!validTypes.includes(app.collection.metadata.type)) return;
     }
-    const embeddedOnlyTypes = ['Region'];
     const documentType = app.document?.documentName;
     const headerLabel = _loc('CAT.MEDKIT.HeaderLabel');
-    if (embeddedOnlyTypes.includes(documentType)) {
-        controls.push({
-            label: headerLabel,
-            icon: 'fa-solid fa-shield-cat',
-            onClick: () => {} // TODO: Embedded Macros
-        });
-        return;
-    }
+    const medkitForType = {
+        Item: applications.ItemMedkit,
+        Token: applications.TokenMedkit,
+        Scene: applications.SceneMedkit,
+        // v14 scene-level docs.
+        Level: applications.LevelMedkit,
+        Region: applications.RegionMedkit,
+        Actor: applications.ActorMedkit,
+        ActiveEffect: applications.EffectMedkit,
+        Activity: applications.ActivityMedkit
+    };
     controls.push({
         label: headerLabel,
         icon: 'fa-solid fa-shield-cat',
         onClick: () => {
             if (app instanceof foundry.applications.sidebar.apps.Compendium) {
-                // TODO: Compendium Medkit
-            } else {
-                // TODO: This properly
-                if (documentType === 'Item') new applications.ItemMedkit({document: app.document}).render({force: true});
+                new applications.CompendiumMedkit({document: app.collection}).render({force: true});
+                return;
             }
+            const App = medkitForType[documentType];
+            if (App) new App({document: app.document}).render({force: true});
         }
     });
     // TODO: See whether we can color-code some other way
