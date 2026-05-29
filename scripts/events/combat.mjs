@@ -20,7 +20,7 @@ async function updateCombat(combat, updates, context) {
     }
     if (currentToken) {
         for (let token of currentToken.parent.tokens.filter(i => i.actor && ['npc', 'character'].includes(i.actor.type))) {
-            await regions.processRegionActivities(previousToken, Array.from(currentToken.regions), 'everyTurn', {inCombat: true, currentRound, currentTurn});
+            await regions.processRegionActivities(currentToken, Array.from(currentToken.regions), 'everyTurn', {inCombat: true, currentRound, currentTurn});
             await new Events.CombatEvent(combat, constants.combatPasses.everyTurn, token, {context, combatant: currentCombatant, round: currentRound, turn: currentTurn, previousCombatant, previousRound, previousTurn}).run();
         }
         await regions.processRegionActivities(previousToken, Array.from(currentToken.regions), 'turnStart', {inCombat: true, currentRound, currentTurn});

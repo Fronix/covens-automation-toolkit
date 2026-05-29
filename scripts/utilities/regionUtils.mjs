@@ -55,46 +55,27 @@ function getRegionMovementTokens(region, locationData) {
         stayed: new Set() 
     };
     const scene = region.parent;
-    const gridSize = scene.grid.size;
-    const gridDistance = scene.grid.distance;
     const tokens = scene.tokens;
     if (!tokens.size) return results;
-    const newBottom = region.elevation?.bottom;
-    const newTop = region.elevation?.top;
+    const gridSize = scene.grid.size;
+    const gridDistance = scene.grid.distance;
+    const newBottom = region.elevation.bottom;
     const newAnchor = getShapeAnchor(region.shapes[0]);
     const dx = newAnchor.x - locationData.oldX;
     const dy = newAnchor.y - locationData.oldY;
-    const getZAtFraction = (oldZ, newZ, fraction) => {
-        if (!isFinite(oldZ) || !isFinite(newZ)) return fraction === 1 ? newZ : oldZ;
-        return oldZ + (newZ - oldZ) * fraction;
-    };
-    const safeZ = isFinite(newBottom) ? newBottom : (isFinite(newTop) ? newTop : 0);
+    const dz = (isFinite(newBottom) && isFinite(locationData.oldBottom)) ? (newBottom - locationData.oldBottom) : 0;
     const checkHit = (token, fraction) => {
-        const tokenZ = token.document.elevation;
-        const currentBottom = getZAtFraction(locationData.oldBottom, newBottom, fraction);
-        const currentTop = getZAtFraction(locationData.oldTop, newTop, fraction);
-        if (tokenZ < currentBottom || tokenZ > currentTop) return false;
         const offsetX = dx * (1 - fraction);
         const offsetY = dy * (1 - fraction);
-        const b = token.bounds;
-        const footprint = [
-            token.center,
-            {x: b.left, y: b.top}, {x: b.right, y: b.top},
-            {x: b.left, y: b.bottom}, {x: b.right, y: b.bottom}
-        ];
-        return footprint.some(pt => {
-            return region.testPoint({
-                x: pt.x + offsetX, 
-                y: pt.y + offsetY, 
-                elevation: safeZ
-            });
+        const offsetZ = dz * (1 - fraction);
+        return token.document.testInsideRegion(region, {
+            x: token.document.x + offsetX,
+            y: token.document.y + offsetY,
+            elevation: token.document.elevation + offsetZ
         });
     };
     const distance2D = Math.hypot(dx, dy);
-    const dzGridUnits = Math.max(
-        Math.abs(isFinite(newBottom) && isFinite(locationData.oldBottom) ? newBottom - locationData.oldBottom : 0),
-        Math.abs(isFinite(newTop) && isFinite(locationData.oldTop) ? newTop - locationData.oldTop : 0)
-    );
+    const dzGridUnits = Math.abs(dz);
     const dzPixels = dzGridUnits * (gridSize / gridDistance);
     const totalEffectiveDistance = Math.max(distance2D, dzPixels);
     tokens.forEach(token => {

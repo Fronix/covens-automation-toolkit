@@ -24,6 +24,11 @@ function placed(region) {
     if (visibility) sourceUpdates.flags.cat.visibility = visibility;
     const effects = activity.flags.cat?.placed?.region?.effects;
     if (effects) sourceUpdates.flags.cat.effects = effects;
+    const activities = activity.flags.cat?.placed?.region?.activities;
+    if (activities) {
+        const activitiesData = activities.map(data => ({uuid: activity.item.system.activities.get(data.id)?.uuid, triggers: data.triggers, disposition: data.disposition, oncePerTurn: data.oncePerTurn})).filter(i => i.uuid);
+        if (activitiesData.length) sourceUpdates.flags.cat.activities = activitiesData;
+    }
     region.updateSource(sourceUpdates);
 }
 async function updateRegionEffects(token, currentRegions = []) {
@@ -163,7 +168,7 @@ async function processRegionActivities(token, currentRegions, triggerType, {comb
         for (const actConfig of matchedActivities) {
             const sourceActivity = await fromUuid(actConfig.uuid);
             if (!isValidDispositionTarget(sourceActivity, token, actConfig.disposition)) continue;
-            const isOncePerTurn = actConfig.oncePerTurn !== false; 
+            const isOncePerTurn = actConfig.oncePerTurn; 
             if (isOncePerTurn && combatData.inCombat) {
                 if (isStampedThisTurn(processedTokens, token.id, combatData)) continue;
                 requiresStampUpdate = true;
