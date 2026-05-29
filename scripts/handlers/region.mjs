@@ -138,7 +138,6 @@ function isValidDispositionTarget(sourceActivity, token, targetDisposition) {
     return true;
 }
 async function processRegionActivities(token, currentRegions, triggerType, {combatData} = {}) {
-    console.log(combatData);
     Logging.addEntry('DEBUG', 'Processing region activities for pass ' + triggerType + ' for ' + token.name);
     if (!currentRegions.length) return;
     const groupedRegions = getGroupedRegions(currentRegions);
