@@ -29,33 +29,33 @@ function headerControls(api) {
     });
 }
 async function renderTidyItemSheet(app, elem, options) {
-    console.dir(app);
-    console.dir(elem);
-    const html = elem[0] ?? elem;
-    const headerIcon = html.querySelector('.cat-medkit-item');
-    if (!headerIcon) return;
-    const item = app.document;
-    if (!item) return;
-    let medkitStatus;
-    switch (automationUtils.getAutomationStatus(item)) {
-        case -2:
-            medkitStatus = constants.MEDKIT_STATUSES.UNKNOWN;
-            break;
-        case -1:
-            medkitStatus = constants.MEDKIT_STATUSES.AVAILABLE;
-            break;
-        case 0:
-            medkitStatus = constants.MEDKIT_STATUSES.OUTDATED;
-            break;
-        case 1:
-            medkitStatus = constants.MEDKIT_STATUSES.UP_TO_DATE;
-            break;
-        case 2:
-        case 3:
-            medkitStatus = constants.MEDKIT_STATUSES.CONFIGURABLE;
-            break;
-    }
-    if (medkitStatus) headerIcon.dataset.medkitStatus = medkitStatus;
+    setTimeout(() => {
+        const html = elem[0] ?? elem;
+        const headerIcon = html.querySelector('.cat-medkit-item');
+        if (!headerIcon) return;
+        const item = app.document;
+        if (!item) return;
+        let medkitStatus;
+        switch (automationUtils.getAutomationStatus(item)) {
+            case -2:
+                medkitStatus = constants.MEDKIT_STATUSES.UNKNOWN;
+                break;
+            case -1:
+                medkitStatus = constants.MEDKIT_STATUSES.AVAILABLE;
+                break;
+            case 0:
+                medkitStatus = constants.MEDKIT_STATUSES.OUTDATED;
+                break;
+            case 1:
+                medkitStatus = constants.MEDKIT_STATUSES.UP_TO_DATE;
+                break;
+            case 2:
+            case 3:
+                medkitStatus = constants.MEDKIT_STATUSES.CONFIGURABLE;
+                break;
+        }
+        if (medkitStatus) headerIcon.dataset.medkitStatus = medkitStatus;
+    }, 100);
 }
 
 export default {
