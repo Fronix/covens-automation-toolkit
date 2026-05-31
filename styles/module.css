@@ -28,11 +28,11 @@
     --cat-transition-fast: all 150ms ease;
 }
 
-[data-medkit-status="unknown"]          { color: var(--cat-status-pink); }
-[data-medkit-status="outdated"]     { color: var(--cat-status-red); }
-[data-medkit-status="available"]        { color: var(--cat-status-yellow); }
-[data-medkit-status="up-to-date"]   { color: var(--cat-status-green); }
-[data-medkit-status="configurable"]     { color: var(--cat-status-blue); }
+[data-medkit-status="unknown"]          { color: var(--cat-status-pink) !important; }
+[data-medkit-status="outdated"]         { color: var(--cat-status-red) !important; }
+[data-medkit-status="available"]        { color: var(--cat-status-yellow) !important; }
+[data-medkit-status="up-to-date"]       { color: var(--cat-status-green) !important; }
+[data-medkit-status="configurable"]     { color: var(--cat-status-blue) !important; }
 
 .cat-dialog {
     backdrop-filter: blur(6px);
