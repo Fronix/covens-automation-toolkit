@@ -29,9 +29,11 @@ function headerControls(api) {
     });
 }
 async function renderTidyItemSheet(app, elem, options) {
+    console.log(app);
+    console.log(elem);
     setTimeout(() => {
-        const html = elem[0] ?? elem;
-        const headerIcon = html.querySelector('.cat-medkit-item');
+        const headerIcon = elem.querySelector('.cat-medkit-item');
+        console.log(headerIcon);
         if (!headerIcon) return;
         const item = app.document;
         if (!item) return;
