@@ -31,11 +31,12 @@ async function hashCompendium(compendium, {register = false} = {}) {
             'system.identifier'
         ] 
     });
-    await Promise.all(index.map(async entry => {
-        const oldHash = foundry.utils.getProperty(entry, 'flags.cat.automation.hash');
-        const rules = foundry.utils.getProperty(entry, 'system.source.rules');
-        const identifier = foundry.utils.getProperty(entry, 'system.identifier');
-        if (oldHash) {
+    const promises = [];
+    index.forEach(entry => {
+        promises.push((async () => {
+            const oldHash = foundry.utils.getProperty(entry, 'flags.cat.automation.hash');
+            const rules = foundry.utils.getProperty(entry, 'system.source.rules');
+            const identifier = foundry.utils.getProperty(entry, 'system.identifier');
             if (register) {
                 constants.automations.registerAutomation({
                     source: compendium.metadata.id,
@@ -45,22 +46,15 @@ async function hashCompendium(compendium, {register = false} = {}) {
                     version: '0'
                 });
             }
-        } else {
-            const item = await compendium.getDocument(entry._id);
-            if (!item) return;
-            const hash = automationUtils.getDocumentHash(item);
-            if (register) {
-                constants.automations.registerAutomation({
-                    source: compendium.metadata.id,
-                    rules: rules,
-                    identifier: identifier,
-                    uuid: item.uuid,
-                    version: '0'
-                });
+            if (!oldHash && !compendium.locked) {
+                const item = await compendium.getDocument(entry._id);
+                if (!item) return;
+                const hash = automationUtils.getDocumentHash(item);
+                await automationUtils.setDocumentHash(item, hash);
             }
-            await automationUtils.setDocumentHash(item, hash);
-        }
-    }));
+        })());
+    });
+    await Promise.all(promises);
 }
 async function registerCompendiums() {
     const compendiums = automationUtils.getAutomationSources({packsOnly: true}).map(id => game.packs.get(id)).filter(Boolean);
