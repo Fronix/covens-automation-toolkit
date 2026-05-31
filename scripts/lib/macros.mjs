@@ -42,13 +42,13 @@ export class RegisteredMacros {
             macros
         };
     }
-    getAllGenericMacros() {
+    getAllMacros({genericOnly = false} = {}) {
         const allMacros = [...this.fnMacros, ...this.overwriteMacros];
         const uniqueMacros = new Map();
         allMacros.forEach(macro => {
-            if (macro.generic === true) {
-                const key = macro.source + '|' + macro.identifier + '|' + macro.rules;
-                uniqueMacros.set(key, macro);
+            if (!!macro.generic === genericOnly) {
+                const compositeKey = macro.source + '|' + macro.identifier + '|' + macro.rules;
+                uniqueMacros.set(compositeKey, macro);
             }
         });
         return Array.from(uniqueMacros.values());
