@@ -7,12 +7,14 @@ async function bulkUpdated(items) {
 }
 async function createItem(item, options, userId) {
     if (!queryUtils.isTheGM()) return;
-    if (item.compendium) await items.updateHash(item);
+    if (item.compendium) await items.updateHash(item, {create: true});
     if (!item.actor) return;
     await new Events.ItemEvent(item, constants.itemPasses.created, {options}).run();
 }
 async function deleteItem(item, options, userId) {
-    if (!queryUtils.isTheGM() || !item.actor) return;
+    if (!queryUtils.isTheGM()) return;
+    if (item.compendium) await items.updateHash(item, {remove: true});
+    if (!item.actor) return;
     await new Events.ItemEvent(item, constants.itemPasses.deleted, {options}).run();
 }
 async function updateItem(item, updates, options, userId) {

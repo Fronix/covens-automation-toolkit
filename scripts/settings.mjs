@@ -52,6 +52,11 @@ const settings = {
                 enabled: true,
                 priority: 96,
                 pack: false
+            },
+            'world.test': {
+                enabled: true,
+                priority: 95,
+                pack: true
             }
         }
     },

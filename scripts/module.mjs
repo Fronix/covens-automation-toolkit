@@ -9,6 +9,7 @@ import CatMultiCombobox from './applications/elements/multi-combobox.mjs';
 import {test} from './test.mjs';
 import * as patches from './patches/_module.mjs';
 import * as integration from './integration/_modules.mjs';
+import * as handlers from './handlers/_module.mjs';
 customElements.define(CatCombobox.tagName, CatCombobox);
 customElements.define(CatMultiCombobox.tagName, CatMultiCombobox);
 Hooks.once('i18nInit', () => {
@@ -76,6 +77,7 @@ Hooks.once('ready', () => {
         integration.phb.registerScales();
     }
     if (game.modules.get('dnd-dungeon-masters-guide')?.active) integration.dmg.registerAutomations();
+    handlers.items.registerCompendiums();
 });
 Hooks.once('ddb-importer.compendiumCreationComplete', () => {
     integration.ddbi.registerAutomations();

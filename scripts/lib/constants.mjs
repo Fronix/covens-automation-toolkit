@@ -224,6 +224,39 @@ const statusEffectKeys = [
     'macro.StatusEffect',
     'StatusEffect'
 ];
+function getItemKeepPaths({spell = false} = {}) {
+    const paths = [
+        '_stats.compendiumSource',
+        'flags.ddbimporter',
+        'flags.dnd5e.advancementOrigin',
+        'flags.dnd5e.cachedFor',
+        'flags.dnd5e.sourceId',
+        'flags.tidy5e-sheet',
+        'folder',
+        'name',
+        'system.advancement',
+        'system.attunement',
+        'system.chatFlavor',
+        'system.container',
+        'system.description.chat',
+        'system.description.value',
+        'system.equipped',
+        'system.materials',
+        'system.quantity',
+        'system.source',
+        'system.sourceItem',
+        'system.prepared',
+        'system.method',
+        'flags.core.sourceId',
+        'flags.cat.config',
+        'ownership',
+        'sort'
+    ];
+    if (spell) {
+        paths.push('system.uses');
+    }
+    return paths;
+}
 export default {
     /** @type {RegisteredMacros} */
     macros: undefined,
@@ -265,5 +298,6 @@ export default {
     meleeSpellAttacks,
     miscHookNames,
     statusEffectKeys,
-    automationStatus
+    automationStatus,
+    getItemKeepPaths
 };

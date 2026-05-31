@@ -13,6 +13,12 @@ function deepClone(object) {
 function mergeObject(original, other, options = {}) {
     return foundry.utils.mergeObject(original, other, options);
 }
+function isEmpty(value) {
+    return foundry.utils.isEmpty(value);
+}
+function expandObject(obj) {
+    return foundry.utils.expandObject(obj);
+}
 function convertDistance(scene, distanceFt) {
     switch(scene.grid.units) {
         case 'm': return Math.floor((distanceFt / 5) * 1.5);
@@ -39,5 +45,7 @@ export default {
     convertDistance,
     translate,
     sleep,
-    decimalToFraction
+    decimalToFraction,
+    isEmpty,
+    expandObject
 };

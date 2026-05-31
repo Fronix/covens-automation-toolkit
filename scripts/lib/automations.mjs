@@ -281,6 +281,27 @@ export class RegisteredAutomations {
     getSourceName(id) {
         return this.sourceNames[id] ?? id;
     }
+
+    unregisterAutomationsBySource(source) {
+        const initialLength = this.automations.length;
+        this.automations = this.automations.filter(automation => automation.source !== source);
+        if (this.automations.length !== initialLength) {
+            this.sources.delete(source);
+            Logging.addEntry('DEBUG', 'Unregistered all automations from source: ' + source);
+        }
+    }
+
+    unregisterAutomation(source, identifier, rules) {
+        const initialLength = this.automations.length;
+        this.automations = this.automations.filter(automation => !(automation.source === source && automation.identifier === identifier && automation.rules === rules));
+        if (this.automations.length !== initialLength) Logging.addEntry('DEBUG', 'Unregistered automation: ' + identifier + ' from ' + source + ' (' + rules + ')');
+    }
+
+    unregisterUuid(uuid) {
+        const initialLength = this.automations.length;
+        this.automations = this.automations.filter(automation => automation.uuid !== uuid);
+        if (this.automations.length !== initialLength) Logging.addEntry('DEBUG', 'Unregistered automation with uuid: ' + uuid);
+    }
 }
 export default {
     Automation,

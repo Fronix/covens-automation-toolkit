@@ -25,28 +25,22 @@ function getActorAutomationStatus(actor) {
 }
 function getItemAutomationStatus(item) {
     if (item.flags.cat?.config?.generic) return constants.automationStatus.GENERIC;
-    else {
-        const storedHash = getStoredHash(item);
-        if (storedHash) {
-            const hash = getDocumentHash(item);
-            if (hash != storedHash) return constants.automationStatus.OUTDATED;
-            return constants.automationStatus.UP_TO_DATE;
-        } else {
-            const currentAutomation = getCurrentAutomation(item);
-            if (currentAutomation) {
-                if (foundry.utils.isNewerVersion(currentAutomation.version, documentUtils.getVersion(item))) return constants.automationStatus.OUTDATED;
-                if (currentAutomation.config) return constants.automationStatus.CONFIGURABLE;
-                return constants.automationStatus.UP_TO_DATE;
-            }
-            if (getAvailableAutomations(item).length) return constants.automationStatus.AVAILABLE;
-        }
+    const isApplied = getStoredHash(item) || getCurrentAutomation(item);
+    if (isApplied) {
+        if (!isUpToDate(item)) return constants.automationStatus.OUTDATED;
+        const currentAutomation = getCurrentAutomation(item);
+        if (currentAutomation?.config) return constants.automationStatus.CONFIGURABLE;
+        return constants.automationStatus.UP_TO_DATE;
     }
+    if (getAvailableAutomations(item).length) return constants.automationStatus.AVAILABLE;
     return constants.automationStatus.UNAVAILABLE;
 }
 function isUpToDate(item) {
     const storedHash = getStoredHash(item);
+    console.log(storedHash);
     if (storedHash) {
         const hash = getDocumentHash(item);
+        console.log(hash);
         if (hash != storedHash) return false;
         return true;
     }
@@ -110,9 +104,9 @@ function getAllGenericConfigs(item) {
 async function setAllGenericConfigs(item, configData) {
     return await documentUtils.update(item, {'flags.cat.genericConfig': configData});
 }
-function getAutomationSources() {
+function getAutomationSources({packsOnly = false} = {}) {
     const settings = game.settings.get('cat', 'automationSources');
-    return Object.entries(settings).filter(([key, value]) => value.enabled).sort((a, b) => a[1].priority - b[1].priority).map(([key, value]) => key);
+    return Object.entries(settings).filter(([key, value]) => value.enabled && (!packsOnly || value.pack)).sort((a, b) => a[1].priority - b[1].priority).map(([key, value]) => key);
 }
 function getAppliedOrPreferedAutomation(item) {
     const currentAutomation = getCurrentAutomation(item);
@@ -140,34 +134,7 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     const documentData = sourceDocument.toObject();
     documentData._id = item.id;
     delete documentData.ownership;
-    const keepPaths = [
-        '_stats.compendiumSource',
-        'flags.ddbimporter',
-        'flags.dnd5e.advancementOrigin',
-        'flags.dnd5e.cachedFor',
-        'flags.dnd5e.sourceId',
-        'flags.tidy5e-sheet',
-        'folder',
-        'name',
-        'system.advancement',
-        'system.attunement',
-        'system.chatFlavor',
-        'system.container',
-        'system.description.chat',
-        'system.description.value',
-        'system.equipped',
-        'system.materials',
-        'system.quantity',
-        'system.source',
-        'system.sourceItem',
-        'system.prepared',
-        'system.method',
-        'flags.core.sourceId',
-        'flags.cat.config',
-        'ownership',
-        'sort'
-    ];
-    if (item.type === 'spell') keepPaths.push('system.uses');
+    const keepPaths = constants.getItemKeepPaths({spell: item.type === 'spell'});
     const oldDocumentData = item.toObject();
     keepPaths.forEach(field => {
         const fieldValue = genericUtils.getProperty(oldDocumentData, field);
@@ -245,10 +212,19 @@ function simpleHash(str) {
 }
 function getDocumentHash(document) {
     const documentData = document.toObject();
-    const deleteFields = ['_stats', '_id', 'folder', 'sort', 'ownership'];
+    const deleteFields = ['_stats', '_id', 'folder', 'sort', 'ownership', 'img'];
     for (let field of deleteFields) delete documentData[field];
-    if (documentData.flags.cat?.automation?.hash) delete documentData.flags.cat.automation.hash;
-    if (foundry.utils.isEmpty(documentData.flags.cat)) delete documentData.flags.cat;
+    if (documentData.effects) documentData.effects.forEach(effect => delete effect.img);
+    const keepPaths = constants.getItemKeepPaths({spell: document.type === 'spell'});
+    const deletions = {};
+    for (const path of keepPaths) {
+        const parts = path.split('.');
+        parts[parts.length - 1] = '-=' + parts[parts.length - 1];
+        deletions[parts.join('.')] = null;
+    }
+    deletions['flags.cat.automation.-=hash'] = null;
+    genericUtils.mergeObject(documentData, genericUtils.expandObject(deletions), {applyOperators: true});
+    if (genericUtils.isEmpty(documentData.flags?.cat)) delete documentData.flags.cat;
     const jsonDocument = JSON.stringify(documentData);
     return simpleHash(jsonDocument);
 }
