@@ -24,7 +24,7 @@ export class RegisteredMacros {
             time: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
             tool: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
             roll: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
-            genericConfig: new fields.ObjectField(new fields.ObjectField({required: true, nullable: false}), {required: false})
+            genericConfig: new fields.ObjectField({required: false, nullable: false})
         });
         this.#multiMacrosSchema = new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}));
     }
@@ -83,7 +83,7 @@ export class RegisteredMacros {
             Logging.addRegistrationError(data, validationError.asError());
             return false;
         }
-        return data.map(i => this.registerFnMacro(i), overwrite);
+        return data.map(i => this.registerFnMacro(i, overwrite));
     }
     getGenericConfigValue(document, source, identifier, key) {
         const value = document.flags.cat?.genericConfig?.[source]?.[identifier]?.[key];

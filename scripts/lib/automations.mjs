@@ -25,7 +25,7 @@ const fields = foundry.data.fields;
  */
 
 class Automation {
-    constructor(source, rules, identifier, uuid, version, {config, notes, monsterIdentifier, scales, type} = {}) {
+    constructor(source, rules, identifier, uuid, version, {config = {}, notes, monsterIdentifier, scales, type} = {}) {
         this.source = source;
         this.rules = rules;
         this.identifier = identifier;
@@ -92,7 +92,7 @@ class Automation {
         return await fromUuid(this.uuid);
     }
     getConfigValue(key) {
-        return this.config.find(i => i.key === key)?.default;
+        return this.config?.[key]?.default;
     }
 }
 export class RegisteredAutomations {
@@ -102,7 +102,7 @@ export class RegisteredAutomations {
         identifier: new fields.StringField({required: true, nullable: false}),
         version: new fields.StringField({required: true, nullable: false}),
         uuid: new fields.StringField({required: true, nullable: false}),
-        config: new fields.ObjectField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
+        config: new fields.ObjectField({required: false, nullable: false}),
         notes: new fields.StringField({required: false, nullable: false}),
         monsterIdentifier: new fields.StringField({required: false, nullable: false}),
         scales: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
