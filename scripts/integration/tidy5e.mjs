@@ -29,33 +29,31 @@ function headerControls(api) {
     });
 }
 async function renderTidySheet(app, elem, options) {
-    setTimeout(() => {
-        const document = app.document;
-        if (!document) return;
-        const selector = document.documentName === 'Item' ? '.cat-medkit-item' : '.cat-medkit-actor';
-        const headerIcon = elem.querySelector(selector);
-        if (!headerIcon) return;
-        let medkitStatus;
-        switch (automationUtils.getAutomationStatus(document)) {
-            case -2:
-                medkitStatus = constants.MEDKIT_STATUSES.UNKNOWN;
-                break;
-            case -1:
-                medkitStatus = constants.MEDKIT_STATUSES.AVAILABLE;
-                break;
-            case 0:
-                medkitStatus = constants.MEDKIT_STATUSES.OUTDATED;
-                break;
-            case 1:
-                medkitStatus = constants.MEDKIT_STATUSES.UP_TO_DATE;
-                break;
-            case 2:
-            case 3:
-                medkitStatus = constants.MEDKIT_STATUSES.CONFIGURABLE;
-                break;
-        }
-        if (medkitStatus) headerIcon.dataset.medkitStatus = medkitStatus;
-    }, 100);
+    const document = app.document;
+    if (!document) return;
+    const selector = document.documentName === 'Item' ? '.cat-medkit-item' : '.cat-medkit-actor';
+    const headerIcon = elem.querySelector(selector);
+    if (!headerIcon) return;
+    let medkitStatus;
+    switch (automationUtils.getAutomationStatus(document)) {
+        case -2:
+            medkitStatus = constants.MEDKIT_STATUSES.UNKNOWN;
+            break;
+        case -1:
+            medkitStatus = constants.MEDKIT_STATUSES.AVAILABLE;
+            break;
+        case 0:
+            medkitStatus = constants.MEDKIT_STATUSES.OUTDATED;
+            break;
+        case 1:
+            medkitStatus = constants.MEDKIT_STATUSES.UP_TO_DATE;
+            break;
+        case 2:
+        case 3:
+            medkitStatus = constants.MEDKIT_STATUSES.CONFIGURABLE;
+            break;
+    }
+    if (medkitStatus) headerIcon.dataset.medkitStatus = medkitStatus;
 }
 export default {
     headerControls,
