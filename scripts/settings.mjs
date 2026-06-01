@@ -27,38 +27,44 @@ const settings = {
     },
     automationSources: {
         type: Object,
+        menu: 'automation',
         default: {
             dnd5e: {
                 enabled: true,
-                priority: 100,
+                priority: 60,
                 pack: false
             },
             'dnd-players-handbook': {
                 enabled: true,
-                priority: 99,
+                priority: 50,
                 pack: false
             },
             'dnd-dungeon-masters-guide': {
                 enabled: true,
-                priority: 98,
+                priority: 40,
                 pack: false
             },
             'ddb-importer': {
                 enabled: true,
-                priority: 97,
+                priority: 30,
                 pack: false
             },
             'midi-qol': {
                 enabled: true,
-                priority: 96,
+                priority: 20,
                 pack: false
             },
             'world.test': {
                 enabled: true,
-                priority: 95,
+                priority: 10,
                 pack: true
             }
         }
+    },
+    additionalCompendiums: {
+        type: Object,
+        menu: 'compendiums',
+        default: {}
     },
     hideNames: {
         type: Boolean,
@@ -87,6 +93,12 @@ const settings = {
     }
 };
 const menus = {
+    automation: {
+        icon: 'fas fa-layer-group'
+    },
+    compendiums: {
+        icon: 'fas fa-book-atlas'
+    },
     devtools: {
         icon: 'fas fa-tools'
     },

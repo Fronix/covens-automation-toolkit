@@ -1,12 +1,11 @@
-import {uiUtils} from '../utilities/_module.mjs';
+import {uiUtils, genericUtils} from '../utilities/_module.mjs';
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 const {fields} = foundry.data;
 
-// Restriction categories rendered as fixed-choice multi-selects (the rest are free-form text).
-const CHOICE_RESTRICTIONS = ['type', 'property', 'school', 'ability', 'damageTypes'];
-// Restrictions that also expose a requireAll toggle (identifier/level/method are OR-only or free-form).
-const REQUIRE_ALL = ['type', 'property', 'school', 'ability', 'method', 'damageTypes'];
-const FREEFORM_RESTRICTIONS = ['identifier', 'level', 'method'];
+const CHOICE_RESTRICTIONS = ['type', 'property', 'school', 'ability', 'damageTypes', 'level', 'method'];
+const REQUIRE_ALL = ['property'];
+const FREEFORM_RESTRICTIONS = ['identifier'];
+const NUMERIC_RESTRICTIONS = ['level'];
 
 const csv = arr => (Array.isArray(arr) ? arr : []).join(', ');
 const splitCsv = raw => String(raw ?? '').split(',').map(s => s.trim()).filter(Boolean);
@@ -70,7 +69,7 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
             context.choiceRestrictions = CHOICE_RESTRICTIONS.map(key => ({
                 key,
                 label: _loc(`CAT.MEDKIT.DocProps.Restrictions.${key}`),
-                options: Object.entries(this.#choices[key] ?? {}).map(([value, label]) => ({value, label, selected: e.lists[key].includes(value)})),
+                options: Object.entries(this.#choices[key] ?? {}).map(([value, label]) => ({value, label, selected: e.lists[key].map(String).includes(value)})),
                 requireAll: e.requireAll[key],
                 hasRequireAll: REQUIRE_ALL.includes(key)
             }));
@@ -93,7 +92,7 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
 
     /** @this {DocPropertyEditorApp} */
     static #onFormSubmit(_event, _form, formData) {
-        const data = foundry.utils.expandObject(formData.object);
+        const data = genericUtils.expandObject(formData.object);
         const parseMulti = raw => { try { return raw ? JSON.parse(raw) : []; } catch { return []; } };
         let entry;
         if (this.#type === 'rollModifiers') {
@@ -101,12 +100,14 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
             if (!modifiers.length) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.rollModifiers.Invalid'));
             const restrictions = {};
             for (const key of CHOICE_RESTRICTIONS) {
-                const values = parseMulti(data[key]);
-                if (values.length) restrictions[key] = {value: values, requireAll: !!data.requireAll?.[key]};
+                let values = parseMulti(data[key]);
+                if (NUMERIC_RESTRICTIONS.includes(key)) values = values.map(Number).filter(n => !Number.isNaN(n));
+                if (!values.length) continue;
+                restrictions[key] = {value: values};
+                if (REQUIRE_ALL.includes(key)) restrictions[key].requireAll = !!data.requireAll?.[key];
             }
             for (const key of FREEFORM_RESTRICTIONS) {
-                let values = splitCsv(data[key]);
-                if (key === 'level') values = values.map(Number).filter(n => !Number.isNaN(n));
+                const values = splitCsv(data[key]);
                 if (values.length) restrictions[key] = {value: values};
             }
             entry = {modifiers, restrictions};
@@ -126,39 +127,21 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
         if (this.#onSubmit?.(entry) !== false) this.close();
     }
 
-    #enableDragging() {
-        const handle = this.element?.querySelector('.cat-embedded-macros-header');
-        if (!handle || handle.dataset.dragWired === '1') return;
-        handle.dataset.dragWired = '1';
-        const drag = new foundry.applications.ux.Draggable.implementation(this, this.element, handle, false);
-        const orig = drag._onDragMouseDown.bind(drag);
-        drag._onDragMouseDown = (event) => {
-            if (event.target.closest('button, a, input, select, textarea, [data-action], cat-multi-combobox')) return;
-            orig(event);
-        };
-    }
-
     async _preClose(options) {
         options.animate = false;
         await uiUtils.fadeOut(this.element);
     }
 
     bringToFront() {
-        if (!this.element) return;
-        this.position.zIndex = ++ApplicationV2._maxZ;
-        this.element.style.zIndex = String(this.position.zIndex);
-        ui.activeWindow = this;
+        uiUtils.bringToFront(this);
     }
 
     _onRender(context, options) {
         super._onRender(context, options);
-        this.#enableDragging();
+        uiUtils.enableWindowDrag(this, '.cat-embedded-macros-header', {ignore: 'button, a, input, select, textarea, [data-action], cat-multi-combobox'});
         if (options.isFirstRender) {
             this.bringToFront();
-            const win = this.element.ownerDocument.defaultView ?? window;
-            const w = this.element.offsetWidth || 560;
-            const h = this.element.offsetHeight || 480;
-            this.setPosition({left: (win.innerWidth - w) / 2, top: (win.innerHeight - h) / 2});
+            uiUtils.centerWindow(this, {width: 560, height: 480});
         }
     }
 }
