@@ -1,5 +1,6 @@
 import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
 import queryUtils from './queryUtils.mjs';
+import tokenUtils from './tokenUtils.mjs';
 
 async function runDialog(userId, title, content, inputs, buttons, config) {
     if (userId === game.user.id) return await DialogApp.dialog(title, content, inputs, buttons, config);
@@ -219,9 +220,48 @@ async function queuedConfirmDialog(title, content, {actor, reason, userId = game
     let selection = await runQueuedDialog(userId, title, content, [], 'yesNo', undefined, reason);
     return selection?.buttons;
 }
-// TODO: implement when tokenUtils.checkCover, tokenUtils.getDistance, and CPR-setting 'hideNames' are ported.
-async function selectTargetDialog() {
-    throw new Error('selectTargetDialog not yet implemented');
+async function selectTargetDialog(title, content, targets, {type = 'one', selectOptions = [], skipDeadAndUnconscious = true, coverToken = undefined, reverseCover = false, displayDistance = true, maxAmount = 1, minAmount = 0, userId = game.user.id, buttons = 'okCancel', maxes = {}} = {}) {
+    const inputType = type === 'multiple' ? 'checkbox' : type === 'number' ? 'number' : type === 'select' ? 'selectOption' : type === 'selectAmount' ? 'selectAmount' : 'radio';
+    const inputs = [[inputType]];
+    const targetInputs = [];
+    const hideNames = game.settings.get('cat', 'hideNames');
+    let number = 1;
+    for (const i of targets) {
+        let label;
+        if (hideNames && i.document.disposition <= 0) {
+            label = _loc('CAT.Dialog.UnknownTarget') + ' (' + number + ')';
+            number++;
+        } else {
+            label = i.document.name;
+        }
+        if (coverToken && !reverseCover) label += ' [' + tokenUtils.checkCover(coverToken, i, {displayName: true}) + ']';
+        else if (coverToken) label += ' [' + tokenUtils.checkCover(i, coverToken, {displayName: true}) + ']';
+        if (displayDistance && coverToken) label += ' [' + tokenUtils.getDistance(coverToken, i).toFixed(2) + ' ' + canvas.scene.grid.units + ' ]';
+        targetInputs.push({
+            label,
+            name: i.id,
+            options: {image: i.document.texture.src, isChecked: targetInputs.length === 0, options: selectOptions, maxAmount: maxes[i.id] ?? maxAmount, minAmount}
+        });
+    }
+    inputs[0].push(targetInputs);
+    inputs[0].push({displayAsRows: true, radioName: 'targets', totalMax: maxAmount});
+    if (skipDeadAndUnconscious) inputs.push(['checkbox', [{label: _loc('CAT.Dialog.SkipDeadAndUnconscious'), name: 'skip', options: {isChecked: true}}]]);
+    const selection = await runDialog(userId, title, content, inputs, buttons, {width: 500});
+    if (!selection || selection.buttons === false) return false;
+    const skip = selection.skip;
+    let result;
+    if (type === 'one') {
+        result = targets.find(target => target.id === selection.targets);
+    } else {
+        for (const [key, value] of Object.entries(selection)) {
+            if (key === 'buttons' || key === 'skip' || value === false || value === 0 || value === '0' || value == null) continue;
+            const doc = targets.find(target => target.id === key);
+            if (!doc) continue;
+            result ??= [];
+            result.push(type === 'multiple' ? doc : {document: doc, value});
+        }
+    }
+    return [result, skip];
 }
 async function selectDie(rolls = [], title, content, {max = 1, userId = game.user.id, buttons = 'okCancel'} = {}) {
     let dice = [];

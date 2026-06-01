@@ -40,17 +40,17 @@
                 </div>
             {{/each}}
         {{else if isRadio}}
-            <div class="form-group">
-                <div class="form-fields">
-                    {{#each options}}
+            {{#each options}}
+                <div class="form-group">
+                    <label for="i{{@../index}}j{{@index}}">
+                        {{#if image}}<img class="label-image" src="{{image}}" data-token-id="{{name}}">{{/if}}
+                        {{localize label}}
+                    </label>
+                    <div class="form-fields">
                         <input type="radio" id="i{{@../index}}j{{@index}}" name="{{../radioName}}" value="{{name}}" {{#if isChecked}}checked{{/if}}>
-                        <label for="i{{@../index}}j{{@index}}">
-                            {{#if image}}<img class="label-image" src="{{image}}" data-token-id="{{name}}">{{/if}}
-                            {{localize label}}
-                        </label>
-                    {{/each}}
+                    </div>
                 </div>
-            </div>
+            {{/each}}
         {{else if isSelectAmount}}
             {{#if totalMax}}
                 <div class="cat-budget-counter{{#if atMax}} at-max{{/if}}">{{currentSpent}}/{{totalMax}}</div>

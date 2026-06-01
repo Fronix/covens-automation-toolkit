@@ -355,7 +355,9 @@
       },
       "HitDieLabel": "{className}: {remaining}/{max} {denomination}",
       "Use": "Use {itemName}?",
-      "Total": "Total"
+      "Total": "Total",
+      "UnknownTarget": "Unknown Target",
+      "SkipDeadAndUnconscious": "Skip Dead and Unconscious"
     },
     "Common": {
       "Cover": "{amount} {cover}"

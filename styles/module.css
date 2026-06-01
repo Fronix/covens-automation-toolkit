@@ -305,6 +305,12 @@
     opacity: 0.6;
 }
 
+.cat-dialog #dialog-app > .form-group:last-child:has(input[type="checkbox"]) {
+    margin-top: var(--cat-space-sm);
+    padding-top: var(--cat-space-md);
+    border-top: 1px solid var(--cat-border-light);
+}
+
 .cat-dialog input,
 .cat-dialog select,
 .cat-dialog textarea,
