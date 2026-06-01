@@ -228,11 +228,11 @@ async function selectTargetDialog(title, content, targets, {type = 'one', select
     let number = 1;
     for (const i of targets) {
         let label;
-        if (hideNames && i.document.disposition <= 0) {
+        if (hideNames && i.disposition <= 0) {
             label = _loc('CAT.Dialog.UnknownTarget') + ' (' + number + ')';
             number++;
         } else {
-            label = i.document.name;
+            label = i.name;
         }
         if (coverToken && !reverseCover) label += ' [' + tokenUtils.checkCover(coverToken, i, {displayName: true}) + ']';
         else if (coverToken) label += ' [' + tokenUtils.checkCover(i, coverToken, {displayName: true}) + ']';
@@ -240,16 +240,16 @@ async function selectTargetDialog(title, content, targets, {type = 'one', select
         targetInputs.push({
             label,
             name: i.id,
-            options: {image: i.document.texture.src, isChecked: targetInputs.length === 0, options: selectOptions, maxAmount: maxes[i.id] ?? maxAmount, minAmount}
+            options: {image: i.texture.src, isChecked: targetInputs.length === 0, options: selectOptions, maxAmount: maxes[i.id] ?? maxAmount, minAmount}
         });
     }
     inputs[0].push(targetInputs);
     inputs[0].push({displayAsRows: true, radioName: 'targets', totalMax: maxAmount});
     if (skipDeadAndUnconscious) inputs.push(['checkbox', [{label: _loc('CAT.Dialog.SkipDeadAndUnconscious'), name: 'skip', options: {isChecked: true}}]]);
     const selection = await runDialog(userId, title, content, inputs, buttons, {width: 500});
-    if (!selection || selection.buttons === false) return false;
-    const skip = selection.skip;
-    let result;
+    if (!selection || selection.buttons === false) return null;
+    const skip = selection.skip ?? skipDeadAndUnconscious;
+    let result = type === 'one' ? undefined : [];
     if (type === 'one') {
         result = targets.find(target => target.id === selection.targets);
     } else {
@@ -257,11 +257,10 @@ async function selectTargetDialog(title, content, targets, {type = 'one', select
             if (key === 'buttons' || key === 'skip' || value === false || value === 0 || value === '0' || value == null) continue;
             const doc = targets.find(target => target.id === key);
             if (!doc) continue;
-            result ??= [];
-            result.push(type === 'multiple' ? doc : {document: doc, value});
+            result.push(type === 'multiple' ? doc : {document: doc, value}); 
         }
     }
-    return [result, skip];
+    return {result, skip};
 }
 async function selectDie(rolls = [], title, content, {max = 1, userId = game.user.id, buttons = 'okCancel'} = {}) {
     let dice = [];

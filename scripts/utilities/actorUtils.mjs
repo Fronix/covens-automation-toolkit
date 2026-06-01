@@ -69,6 +69,38 @@ function getEquivalentSpellSlotName(actor, level, {canCast = false} = {}) {
         return Object.entries(actor.system.spells)?.find(i => i[1].level >= level && i[1].value)?.[0];
     }
 }
+function getCastableSpells(actor, {identifiers = []} = {}) {
+    const maxSlot = Math.max(...Object.values(actor.system.spells).filter(i => i.value).map(j => j.level), 0);
+    let validSpells = actor.items.filter(i => i.type === 'spell');
+    if (identifiers.length) validSpells.filter(i => identifiers.includes(documentUtils.getIdentifier(i)));
+    validSpells = validSpells.filter(i => i.system.method != 'spell' || i.system.level === 0 || i.system.prepared);
+    validSpells = validSpells.filter(i => !i.system.hasLimitedUses || i.system.uses.value);
+    validSpells = validSpells.filter(i => ['atwill', 'innate'].includes(i.system.method) || maxSlot >= i.system.level);
+    validSpells = validSpells.filter(i => {
+        const linkedActivity = i.system.linkedActivity;
+        if (!linkedActivity) return true;
+        for (const target of linkedActivity.consumption.targets ?? []) {
+            if (target.type === 'itemUses') {
+                let targetItem;
+                if (!target.target?.length) {
+                    targetItem = linkedActivity.item;
+                } else {
+                    targetItem = actor.items.get(target.target);
+                }
+                if (Number(targetItem?.system.uses.value ?? 0) < Number(target.value ?? 0)) return false;
+            } else if (target.type === 'activityUses') {
+                if (Number(linkedActivity.uses.value ?? 0) < Number(target.value ?? 0)) return false;
+            } else if (target.type === 'material') {
+                if (Number(actor.items.get(target.target)?.system.quantity ?? 0) < Number(target.value ?? 0)) return false;
+            }
+            return true;
+        }
+    });
+    return validSpells;
+}
+function hasUsedReaction(actor) {
+    return MidiQOL.hasUsedReaction(actor);
+}
 export default {
     getCastData,
     getEffects,
@@ -85,5 +117,7 @@ export default {
     getEffectByStatusID,
     applyConditions,
     getItemByIdentifier,
-    getEquivalentSpellSlotName
+    getEquivalentSpellSlotName,
+    getCastableSpells,
+    hasUsedReaction
 };

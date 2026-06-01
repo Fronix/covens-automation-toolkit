@@ -9,7 +9,7 @@ function getDistance(token, target, {wallsBlock, checkCover, convertToFt = true}
 function checkCover(sourceToken, targetToken, {activity, displayName}) {
     // TODO replace the following with MidiQOL.getCoverBonus when that becomes available
     const statusCover = targetToken.actor.statuses.has('coverTotal') ? 999 : (targetToken.actor.system.attributes.ac.cover ?? 0);
-    const moduleCover = MidiQOL.computeCoverBonus(sourceToken, targetToken.object, activity);
+    const moduleCover = MidiQOL.computeCoverBonus(sourceToken.object, targetToken.object, activity);
     const cover = Math.max(moduleCover, statusCover);
     if (!displayName) return cover;
     const names = {

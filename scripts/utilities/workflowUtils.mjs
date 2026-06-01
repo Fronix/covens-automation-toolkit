@@ -84,6 +84,9 @@ async function syntheticActivityDataRoll(activityData, item, targets, {config = 
     const activity = newItem.system.activities.get(activityData._id);
     return await syntheticActivityRoll(activity, targets, {config, options, dialog, message, userId, atLevel, consumeUsage, consumeResources, spellSlot});
 }
+async function completeItemUse(item, targets = []) {
+
+}
 export default {
     getActionType,
     isAttackType,
