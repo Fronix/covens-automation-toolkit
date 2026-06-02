@@ -169,6 +169,9 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     if (!skipEvent && actor) await itemEvents.itemMedkit(document);
     if (openSheet) await document.sheet.render(true);
 }
+function getGenericAnimationConfig(document, source, identifier, settingKey, key) {
+    return constants.animations.getGenericAnimationConfig(document, source, identifier, settingKey, key);
+}
 async function updateScales(item, {automation} = {}) {
     automation ??= getCurrentAutomation(item);
     if (!automation) return;
@@ -269,5 +272,6 @@ export default {
     isUpToDate,
     getActorAutomationStatus,
     getAllGenericConfigs,
-    setAllGenericConfigs
+    setAllGenericConfigs,
+    getGenericAnimationConfig
 };
