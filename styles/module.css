@@ -211,8 +211,8 @@
     min-width: 3rem;
     padding: 0.05rem 0.35rem;
     border-radius: var(--cat-radius-sm);
-    font-size: 0.7em;
     font-weight: 600;
+    font-size: 0.7em;
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.03em;
@@ -1116,6 +1116,11 @@ cat-combobox {
 
 .cat-medkit fieldset:last-child {
     margin-bottom: 0;
+}
+
+.cat-medkit fieldset.cat-generic-animation-options {
+    margin: 0 0 var(--cat-space-md) var(--cat-space-md);
+    background: rgb(0 0 0 / 20%);
 }
 
 .cat-medkit-footer,

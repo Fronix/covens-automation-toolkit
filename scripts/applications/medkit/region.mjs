@@ -35,6 +35,7 @@ export default class RegionMedkit extends MedkitApp {
         const flags = this._getFlags();
         context.magicalDarkness = flags.visibility?.magicalDarkness ?? false;
         context.obscured = flags.visibility?.obscured ?? false;
+        this._prepareIdentifierField(context);
         return context;
     }
 }

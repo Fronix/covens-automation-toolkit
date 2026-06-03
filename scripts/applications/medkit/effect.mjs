@@ -62,6 +62,7 @@ export default class EffectMedkit extends MedkitApp {
             .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}))
             .map(c => ({...c, selected: pickedDurations.has(c.value)}));
 
+        this._prepareIdentifierField(context);
         return context;
     }
 }

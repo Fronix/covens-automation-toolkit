@@ -20,7 +20,7 @@
             <fieldset data-section="generic-feature" data-feature-id="{{feature.id}}">
                 <legend>{{feature.label}}</legend>
                 {{#each feature.options as |option|}}
-                    {{formGroup option.field name=option.name value=option.value}}
+                    {{> "modules/cat/templates/medkit/shared/option-field.hbs" option}}
                 {{/each}}
                 {{#unless feature.options.length}}
                     <p class="hint">{{localize "CAT.MEDKIT.Generic.NoConfig"}}</p>

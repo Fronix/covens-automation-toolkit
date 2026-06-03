@@ -24,7 +24,8 @@
       },
       "Identifier": {
         "Label": "Document Identifier",
-        "Hint": "Item & Activity identifiers must be modified on the respective document sheet."
+        "Hint": "Item & Activity identifiers must be modified on the respective document sheet.",
+        "OverrideHint": "Overrides the identifier used to match this document to an automation. Defaults to the slugified name."
       },
       "Source": {
         "Label": "Automation Source",
@@ -333,7 +334,9 @@
         "SelectField": "Apply features",
         "NoMacros": "No generic features registered.",
         "NoneSelected": "No generic features selected.",
-        "NoConfig": "No configuration for this feature."
+        "NoConfig": "No configuration for this feature.",
+        "IdentifierPlaceholder": "Identifier",
+        "AddIdentifier": "Add identifier"
       },
       "Macros": {
         "Picker": {

@@ -1,4 +1,6 @@
 <section class="tab standard-form{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+    {{> "modules/cat/templates/medkit/shared/identifier-field.hbs"}}
+
     <fieldset data-section="condition-resistance">
         <legend>{{localize "CAT.MEDKIT.Actor.ConditionResistance.Label"}}</legend>
         <div class="form-group">

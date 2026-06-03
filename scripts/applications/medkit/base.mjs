@@ -5,6 +5,10 @@ const {fields} = foundry.data;
 
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 
+Hooks.once('setup', () => {
+    foundry.applications.handlebars.loadTemplates(['modules/cat/templates/medkit/shared/option-field.hbs', 'modules/cat/templates/medkit/shared/identifier-field.hbs']);
+});
+
 function embeddedToFlat(entry) {
     const macro = entry.macros?.[0] ?? {};
     return {name: entry.name ?? '', event: entry.event, pass: entry.pass, priority: macro.priority ?? 0, code: macro.macro ?? '', distance: macro.distance, configDistance: macro.configDistance, dispositions: macro.dispositions, configDispositions: macro.configDispositions, disabled: macro.disabled, configDisabled: macro.configDisabled};
@@ -67,8 +71,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             addEmbeddedMacro: MedkitApp.#addEmbeddedMacro,
             editEmbeddedMacro: MedkitApp.#editEmbeddedMacro,
             removeEmbeddedMacro: MedkitApp.#removeEmbeddedMacro,
-            addDocument: MedkitApp.#addDocument,
-            removeDocument: MedkitApp.#removeDocument,
+            addListEntry: MedkitApp.#addListEntry,
+            removeListEntry: MedkitApp.#removeListEntry,
             massApply: MedkitApp.#massApply
         }
     };
@@ -188,7 +192,6 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const configs = automation?.config;
         if (!configs?.length) return [];
         const currentValues = this.#flags.config ?? {};
-        const COMBOBOX_THRESHOLD = 8;
         const grouped = new Map();
         for (const cfg of configs) {
             const category = cfg.category ?? 'general';
@@ -201,67 +204,80 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 });
             }
             const value = currentValues[cfg.key] ?? cfg.default;
-            const option = {
-                key: cfg.key,
-                name: `flags.cat.config.${cfg.key}`,
-                label: cfg.label,
-                value,
-                tooltip: cfg.tooltip,
-                i18nOption: cfg.i18nOption ? _loc(cfg.i18nOption) : undefined
-            };
-            switch (cfg.type) {
-                case 'checkbox':
-                    option.field = new fields.BooleanField({label: cfg.label});
-                    break;
-                case 'number':
-                    option.field = new fields.NumberField({label: cfg.label});
-                    break;
-                case 'text':
-                    option.field = new fields.StringField({label: cfg.label});
-                    break;
-                case 'file':
-                    option.field = new fields.FilePathField({label: cfg.label, categories: cfg.fileType ? [cfg.fileType.toUpperCase()] : ['IMAGE']});
-                    break;
-                case 'select': {
-                    const opts = typeof cfg.options === 'function' ? cfg.options() : (cfg.options ?? []);
-                    const sorted = [...opts].sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
-                    const choices = sorted.reduce((acc, o) => { acc[o.value] = o.label; return acc; }, {});
-                    if (sorted.length > COMBOBOX_THRESHOLD) {
-                        option.isCombobox = true;
-                        option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image}));
-                    } else {
-                        option.field = new fields.StringField({label: cfg.label, choices, required: true, blank: false});
-                    }
-                    break;
-                }
-                case 'select-many': {
-                    const opts = typeof cfg.options === 'function' ? cfg.options() : (cfg.options ?? []);
-                    const sorted = [...opts].sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
-                    const selectedValues = Array.isArray(value) ? value : [];
-                    option.isMultiCombobox = true;
-                    option.choices = sorted.map(o => ({
-                        value: o.value,
-                        label: o.label,
-                        image: o.image,
-                        selected: selectedValues.includes(o.value)
-                    }));
-                    option.value = selectedValues;
-                    break;
-                }
-                case 'documents': {
-                    option.isDocuments = true;
-                    option.documents = (Array.isArray(value) ? value : []).map(uuid => {
-                        const doc = fromUuidSync(uuid);
-                        return {uuid, name: doc?.name ?? uuid, img: doc?.img};
-                    });
-                    break;
-                }
-                default:
-                    option.field = new fields.StringField({label: cfg.label});
-            }
+            const option = this.#buildOption(cfg, {name: `flags.cat.config.${cfg.key}`, value, configPath: `config.${cfg.key}`});
             grouped.get(category).options.push(option);
         }
         return Array.from(grouped.values());
+    }
+
+    // Build one render-ready option from a descriptor {key,type,label,default,options,fileType,tooltip,i18nOption}.
+    #buildOption(descriptor, {name, value, configPath, source, identifier} = {}) {
+        const {key, type} = descriptor;
+        const label = descriptor.label ? _loc(descriptor.label) : this.#humanize(key);
+        const hint = descriptor.hint || descriptor.tooltip;
+        const option = {key, name, label, value, configPath, tooltip: hint ? _loc(hint) : undefined, i18nOption: descriptor.i18nOption ? _loc(descriptor.i18nOption) : undefined};
+        const COMBOBOX_THRESHOLD = 8;
+        const sortedOptions = () => {
+            const opts = typeof descriptor.options === 'function' ? descriptor.options() : (descriptor.options ?? []);
+            return [...opts].sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
+        };
+        switch (type) {
+            case 'checkbox': option.field = new fields.BooleanField({label}); break;
+            case 'number': option.field = new fields.NumberField({label}); break;
+            case 'text': option.field = new fields.StringField({label}); break;
+            case 'file': option.field = new fields.FilePathField({label, categories: descriptor.fileType ? [descriptor.fileType.toUpperCase()] : ['IMAGE']}); break;
+            case 'select': {
+                const sorted = sortedOptions();
+                if (sorted.length > COMBOBOX_THRESHOLD) {
+                    option.isCombobox = true;
+                    option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image}));
+                } else {
+                    const choices = sorted.reduce((acc, o) => { acc[o.value] = o.label; return acc; }, {});
+                    option.field = new fields.StringField({label, choices, required: true, blank: false});
+                }
+                break;
+            }
+            case 'select-many': {
+                const sorted = sortedOptions();
+                const selectedValues = Array.isArray(value) ? value : [];
+                option.isMultiCombobox = true;
+                option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image, selected: selectedValues.includes(o.value)}));
+                option.value = selectedValues;
+                break;
+            }
+            case 'documents':
+                option.isList = true;
+                option.validate = 'uuid';
+                option.placeholder = 'CAT.MEDKIT.Documents.Placeholder';
+                option.addTooltip = 'CAT.MEDKIT.Documents.Add';
+                option.entries = (Array.isArray(value) ? value : []).map(uuid => {
+                    const doc = fromUuidSync(uuid);
+                    return {value: uuid, label: doc?.name ?? uuid, img: doc?.img};
+                });
+                break;
+            case 'selectActivity':
+                option.isCombobox = true;
+                option.allowBlank = true;
+                option.choices = this.#activityChoices();
+                break;
+            case 'selectAnimation': {
+                const sel = (value && typeof value === 'object') ? value : descriptor.default;
+                option.isAnimationSelect = true;
+                option.choices = this.#animationChoices(descriptor.inputs);
+                option.value = sel?.source ? `${sel.source}|${sel.identifier}` : '';
+                option.animationOptions = this.#animationSubOptions(source, identifier, sel);
+                break;
+            }
+            case 'selectIdentifiers':
+                option.isList = true;
+                option.validate = 'none';
+                option.placeholder = 'CAT.MEDKIT.Generic.IdentifierPlaceholder';
+                option.addTooltip = 'CAT.MEDKIT.Generic.AddIdentifier';
+                option.entries = (Array.isArray(value) ? value : []).map(v => ({value: v, label: v}));
+                break;
+            default: option.field = new fields.StringField({label});
+        }
+        return option;
     }
 
     _getGenericMacros() {
@@ -272,10 +288,14 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const raw = macro?.genericConfig;
         if (!raw) return [];
         return Object.entries(raw).map(([key, d]) => ({
-            key: key, 
-            label: d?.label ?? key, 
-            type: d?.type, 
-            default: d?.default
+            key: key,
+            label: d?.label,
+            hint: d?.hint,
+            type: d?.type,
+            default: d?.default,
+            options: d?.options,
+            fileType: d?.fileType,
+            inputs: d?.inputs
         }));
     }
 
@@ -296,44 +316,124 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             const storedCfg = stored[source]?.[identifier] ?? {};
             const options = this.#genericDescriptors(macro, source, identifier).map(c => {
                 const value = storedCfg[c.key] ?? c.default;
-                const option = {key: c.key, name: `flags.cat.genericConfig.${source}.${identifier}.${c.key}`, label: c.label, value};
-                switch (c.type) {
-                    case 'checkbox': option.field = new fields.BooleanField({label: c.label}); break;
-                    case 'number': option.field = new fields.NumberField({label: c.label}); break;
-                    case 'text': option.field = new fields.StringField({label: c.label}); break;
-                    default: option.field = new fields.StringField({label: c.label});
-                }
-                return option;
+                return this.#buildOption(c, {
+                    name: `flags.cat.genericConfig.${source}.${identifier}.${c.key}`,
+                    value,
+                    configPath: `genericConfig.${source}.${identifier}.${c.key}`,
+                    source,
+                    identifier
+                });
             });
             return {id: composite, label: macro?.label ?? identifier, options};
         });
         return {choices, selected, features};
     }
 
+    // Shared flags.cat.identifier override field for doc types without a native identifier (Effect, Actor, Region).
+    _prepareIdentifierField(context) {
+        context.identifierField = new fields.StringField({label: _loc('CAT.MEDKIT.Identifier.Label')});
+        context.identifierValue = this.#flags.identifier ?? '';
+    }
+
+    // Fallback label for descriptors without an explicit label: 'attackActivityId' -> 'Attack Activity Id'.
+    // TODO: Make this not required by setting a label for everything.
+    #humanize(key) {
+        return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()).replace(/\bId\b/g, 'ID');
+    }
+
+    // Activities on the open item, for selectActivity descriptors.
+    #activityChoices() {
+        const activities = this.#document.system?.activities;
+        if (!activities) return [];
+        return [...activities].map(a => ({value: a.id, label: a.name ?? a.id, image: a.img}));
+    }
+
+    // Every registered animation, for selectAnimation descriptors. Value encodes source|identifier.
+    #animationChoices(requiredInputs) {
+        let animations = constants.animations?.animations ?? [];
+        if (Array.isArray(requiredInputs)) {
+            const required = [...requiredInputs].sort();
+            animations = animations.filter(a => {
+                const inputs = [...(a.inputs ?? [])].sort();
+                return inputs.length === required.length && inputs.every((v, i) => v === required[i]);
+            });
+        }
+        return animations.map(a => ({value: `${a.source}|${a.identifier}`, label: a.name ?? a.identifier}));
+    }
+
+    // Sub-option fields from the selected animation's own config; persisted under flags.cat.animationGenericConfig.
+    #animationSubOptions(source, identifier, selection) {
+        if (!selection?.source || !selection?.identifier) return [];
+        const animation = constants.animations?.getAnimation(selection.source, selection.identifier);
+        if (!animation?.config) return [];
+        const stored = this.#flags.animationGenericConfig?.[source]?.[identifier]?.[selection.source]?.[selection.identifier] ?? {};
+        return Object.entries(animation.config).map(([key, desc]) => {
+            const normalized = {key, type: desc.type, label: desc.label, default: desc.default, fileType: desc.fileType};
+            if (desc.type === 'select') {
+                normalized.options = Object.entries(desc.options ?? {})
+                    .filter(([, opt]) => !opt?.requirements?.length || opt.requirements.every(r => game.modules.get(r)?.active))
+                    .map(([value, opt]) => ({value, label: opt?.label ? _loc(opt.label) : value}));
+            }
+            const value = stored[key] ?? desc.default;
+            const name = `flags.cat.animationGenericConfig.${source}.${identifier}.${selection.source}.${selection.identifier}.${key}`;
+            return this.#buildOption(normalized, {name, value});
+        });
+    }
+
+    // Split a flags.cat.macros map into entries owned by generic features vs everything else.
+    #partitionMacroEntries(macrosMap) {
+        const generics = this._getGenericMacros();
+        const isGeneric = e => generics.some(g => g.source === e.source && g.identifier === e.identifier);
+        const generic = {}, other = {};
+        for (const [event, entries] of Object.entries(macrosMap ?? {})) {
+            for (const entry of entries ?? []) {
+                const bucket = isGeneric(entry) ? generic : other;
+                (bucket[event] ??= []).push(entry);
+            }
+        }
+        return {generic, other};
+    }
+
+    // Merge {event: [entry]} additions into target, deduping by source|identifier|rules.
+    #mergeMacroEntries(target, additions) {
+        for (const [event, entries] of Object.entries(additions ?? {})) {
+            const list = (target[event] ??= []);
+            for (const entry of entries) {
+                if (!list.some(e => e.source === entry.source && e.identifier === entry.identifier && e.rules === entry.rules)) list.push(entry);
+            }
+        }
+    }
+
     _writeGenericSelection(compositeKeys) {
         const macros = this._getGenericMacros();
         const existing = this.#flags.genericConfig ?? {};
         const next = {};
+        const bindings = {};
         for (const composite of compositeKeys) {
             const [source, identifier] = composite.split('|');
+            const macro = macros.find(m => m.source === source && m.identifier === identifier);
             const prior = existing[source]?.[identifier];
             if (prior) {
                 (next[source] ??= {})[identifier] = prior;
             } else {
-                const macro = macros.find(m => m.source === source && m.identifier === identifier);
                 const defaults = {};
                 for (const c of this.#genericDescriptors(macro, source, identifier)) if (c.default !== undefined) defaults[c.key] = c.default;
                 (next[source] ??= {})[identifier] = defaults;
             }
+            if (macro?.flagData) this.#mergeMacroEntries(bindings, macro.flagData);
         }
         this.#flags.genericConfig = next;
+        const {other} = this.#partitionMacroEntries(this.#flags.macros);
+        this.#mergeMacroEntries(other, bindings);
+        if (Object.keys(other).length) this.#flags.macros = other;
+        else delete this.#flags.macros;
     }
 
     // Every globally registered FnMacro (deduped by source|identifier|rules) is a choice.
     // flagPath selects which flag map holds the picked entries (e.g. 'macros' or 'placed.region.macros').
     _prepareRegisteredMacros(flagPath = 'macros') {
         if (!constants.macros) return {choices: []};
-        const all = [...(constants.macros.fnMacros ?? []), ...(constants.macros.overwriteMacros ?? [])];
+        const all = [...(constants.macros.fnMacros ?? []), ...(constants.macros.overwriteMacros ?? [])].filter(m => !m.generic);
         const sourceLabel = src => constants.automations?.getSourceName?.(src) ?? src;
         const seen = new Map();
         for (const m of all) {
@@ -374,6 +474,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 (next[event] ??= []).push(entry);
             }
         }
+        if (flagPath === 'macros') this.#mergeMacroEntries(next, this.#partitionMacroEntries(this.#flags.macros).generic);
         foundry.utils.setProperty(this.#flags, flagPath, next);
     }
 
@@ -449,7 +550,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             }
             this.#hydrateState();
         }
-        const updates = {flags: {cat: this.#flags}};
+        const updates = {flags: {cat: _replace(this.#flags)}};
         if (this.#rulesValue !== (this.#document.system?.source?.rules ?? null)) {
             updates['system.source.rules'] = this.#rulesValue;
         }
@@ -578,35 +679,31 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         this.render();
     }
 
+    // Add an entry (uuid or raw string) to a flags.cat-relative array path. Used by documents + selectIdentifiers.
     /** @this {MedkitApp} */
-    static async #addDocument(_event, target) {
-        const group = target.closest('[data-config-key]');
-        const key = group?.dataset.configKey;
+    static async #addListEntry(_event, target) {
+        const group = target.closest('[data-flag-path]');
+        const path = group?.dataset.flagPath;
         const input = group?.querySelector('input[type="text"]');
-        const uuid = input?.value?.trim();
-        if (!key || !uuid) return;
-        const doc = fromUuidSync(uuid);
-        if (!doc) {
+        const entry = input?.value?.trim();
+        if (!path || !entry) return;
+        if (group.dataset.validate === 'uuid' && !fromUuidSync(entry)) {
             ui.notifications.error(_loc('CAT.MEDKIT.Documents.InvalidUuid'));
             return;
         }
-        const path = `config.${key}`;
         const current = foundry.utils.getProperty(this.#flags, path) ?? [];
-        if (current.includes(uuid)) return;
-        foundry.utils.setProperty(this.#flags, path, [...current, uuid]);
+        if (current.includes(entry)) return;
+        foundry.utils.setProperty(this.#flags, path, [...current, entry]);
         this.render();
     }
 
     /** @this {MedkitApp} */
-    static async #removeDocument(_event, target) {
-        const group = target.closest('[data-config-key]');
-        const key = group?.dataset.configKey;
-        const uuid = target.dataset.uuid;
-        if (!key || !uuid) return;
-        const path = `config.${key}`;
+    static #removeListEntry(_event, target) {
+        const group = target.closest('[data-flag-path]');
+        const path = group?.dataset.flagPath;
+        if (!path) return;
         const current = foundry.utils.getProperty(this.#flags, path) ?? [];
-        const next = current.filter(u => u !== uuid);
-        foundry.utils.setProperty(this.#flags, path, next);
+        foundry.utils.setProperty(this.#flags, path, current.filter(v => v !== target.dataset.value));
         this.render();
     }
 
@@ -622,11 +719,15 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         if (!name) return;
         const multi = target.closest?.('cat-multi-combobox');
         const inMultiCombobox = !!multi;
+        const singleCombobox = !inMultiCombobox && target.matches?.('cat-combobox') ? target : null;
+        const isAnimationSelect = !!singleCombobox?.hasAttribute('data-animation-select');
         let value;
         if (inMultiCombobox) {
             const raw = multi.querySelector('input[type="hidden"]')?.value ?? target.value;
             try { value = raw ? JSON.parse(raw) : []; }
             catch { value = []; }
+        } else if (singleCombobox) {
+            value = singleCombobox.querySelector('input[type="hidden"]')?.value ?? '';
         } else if (target.type === 'checkbox') value = target.checked;
         else if (target.type === 'number') value = Number(target.value);
         else value = target.value;
@@ -638,6 +739,10 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             this._writeMacroSelection(Array.isArray(value) ? value : []);
         } else if (inMultiCombobox && name === 'flags.cat.genericConfig') {
             this._writeGenericSelection(Array.isArray(value) ? value : []);
+        } else if (isAnimationSelect) {
+            const path = name.slice('flags.cat.'.length);
+            const [animSource, animIdentifier] = value ? value.split('|') : [];
+            foundry.utils.setProperty(this.#flags, path, animSource ? {source: animSource, identifier: animIdentifier} : '');
         } else if (name.startsWith('flags.cat.')) {
             foundry.utils.setProperty(this.#flags, name.slice('flags.cat.'.length), value);
             return;
@@ -648,20 +753,19 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     #wireDocumentDrop() {
-        for (const el of this.element.querySelectorAll('.cat-medkit-documents')) {
+        for (const el of this.element.querySelectorAll('.cat-medkit-documents[data-validate="uuid"]')) {
             if (el.dataset.dropWired === '1') continue;
             el.dataset.dropWired = '1';
             el.addEventListener('dragover', e => e.preventDefault());
             el.addEventListener('drop', async event => {
                 event.preventDefault();
-                const key = el.dataset.configKey;
-                if (!key) return;
+                const path = el.dataset.flagPath;
+                if (!path) return;
                 const payload = foundry.applications.ux.DragDrop.implementation.getPayload(event);
                 const uuid = payload?.uuid;
                 if (!uuid) return;
                 const doc = fromUuidSync(uuid);
                 if (!doc) return ui.notifications.error(_loc('CAT.MEDKIT.Documents.InvalidUuid'));
-                const path = `config.${key}`;
                 const current = foundry.utils.getProperty(this.#flags, path) ?? [];
                 if (current.includes(uuid)) return;
                 foundry.utils.setProperty(this.#flags, path, [...current, uuid]);

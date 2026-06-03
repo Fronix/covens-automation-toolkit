@@ -68,7 +68,7 @@ export default class ActorMedkit extends MedkitApp {
             name: new fields.StringField({label: _loc('CAT.MEDKIT.Actor.Name.Label')}),
             ignoreActor: new fields.BooleanField({label: _loc('CAT.MEDKIT.Actor.IgnoreActor.Label')})
         };
-        context.identifierOverride = flags.identifier ?? '';
+        this._prepareIdentifierField(context);
         context.ignoreActor = flags.ignoreActor ?? false;
         const conditionTypes = CONFIG.DND5E?.conditionTypes ?? {};
         const sortedTypes = Object.entries(conditionTypes)
