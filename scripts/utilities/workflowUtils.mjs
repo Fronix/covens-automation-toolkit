@@ -1,5 +1,5 @@
 import {constants} from '../lib/_module.mjs';
-import {actorUtils, genericUtils, itemUtils, queryUtils} from './_module.mjs';
+import {activityUtils, actorUtils, genericUtils, itemUtils, queryUtils} from './_module.mjs';
 function getActionType(workflow) {
     if (!workflow.activity) return;
     return workflow.activity.getActionType(workflow.attackMode);
@@ -78,10 +78,7 @@ async function syntheticActivityRoll(activity, targets = [], {config = {}, optio
     return await completeActivityUse(activity, targets, {config, options, dialog, message, userId, atLevel, consumeUsage, consumeResources, spellSlot, fast: true, autoDamage: true});
 }
 async function syntheticActivityDataRoll(activityData, item, targets, {config = {}, options = {}, dialog = {}, message = {}, userId, atLevel, consumeUsage = true, consumeResources = true, spellSlot = true} = {}) {
-    const itemData = item.toObject();
-    itemData.system.activities[activityData._id] = activityData;
-    const newItem = itemUtils.syntheticItem(itemData, item.actor);
-    const activity = newItem.system.activities.get(activityData._id);
+    const activity = activityUtils.syntheticActivity(activityData, item);
     return await syntheticActivityRoll(activity, targets, {config, options, dialog, message, userId, atLevel, consumeUsage, consumeResources, spellSlot});
 }
 async function completeItemUse(item, targets = [], {config = {}, options = {}, dialog = {}, message = {}, userId, atLevel, consumeUsage = true, consumeResources = true, spellSlot = true, fast = false, autoDamage} = {}) {

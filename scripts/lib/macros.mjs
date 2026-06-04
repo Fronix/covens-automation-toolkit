@@ -24,7 +24,8 @@ export class RegisteredMacros {
             time: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
             tool: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
             roll: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
-            genericConfig: new fields.ObjectField({required: false, nullable: false})
+            genericConfig: new fields.ObjectField({required: false, nullable: false}),
+            documents: new fields.ArrayField(new fields.StringField({required: true, nullable: false}), {required: false})
         });
         this.#multiMacrosSchema = new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}));
     }
@@ -74,7 +75,8 @@ export class RegisteredMacros {
             tool: data.tool ?? [],
             roll: data.roll ?? [],
             generic: data.generic,
-            genericConfig: data.genericConfig
+            genericConfig: data.genericConfig,
+            documents: data.documents
         }));
     }
     registerFnMacros(data = [], overwrite = false) {
@@ -95,12 +97,13 @@ export class RegisteredMacros {
     }
 }
 class FnMacro {
-    constructor(source, identifier, rules, {roll = [], move = [], combat = [], effect = [], aura = [], check = [], region = [], rest = [], save = [], skill = [], time = [], tool = [], generic, genericConfig} = {}) {
+    constructor(source, identifier, rules, {roll = [], move = [], combat = [], effect = [], aura = [], check = [], region = [], rest = [], save = [], skill = [], time = [], tool = [], generic, genericConfig, documents} = {}) {
         this.source = source;
         this.identifier = identifier;
         this.rules = rules;
         this.generic = generic;
         this.genericConfig = genericConfig;
+        this.documents = documents;
         this.macros = {
             aura,
             check,

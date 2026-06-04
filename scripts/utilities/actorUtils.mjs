@@ -101,6 +101,9 @@ function getCastableSpells(actor, {identifiers = []} = {}) {
 function hasUsedReaction(actor) {
     return MidiQOL.hasUsedReaction(actor);
 }
+function getEquippedWeapons(actor) {
+    return actor.items.filter(item => item.type === 'weapon' && item.system.equipped);
+}
 export default {
     getCastData,
     getEffects,
@@ -119,5 +122,6 @@ export default {
     getItemByIdentifier,
     getEquivalentSpellSlotName,
     getCastableSpells,
-    hasUsedReaction
+    hasUsedReaction,
+    getEquippedWeapons
 };

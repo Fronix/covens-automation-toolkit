@@ -22,8 +22,8 @@ function getSavedCastData(item) {
 function getActivityByIdentifier(item, identifier) {
     return item.system.activities.find(activity => activity.identifier === identifier);
 }
-async function syntheticItem(itemData, actor) {
-    let item = new CONFIG.Item.documentClass(itemData, {parent: actor});
+function syntheticItem(itemData, actor) {
+    const item = new CONFIG.Item.documentClass(itemData, {parent: actor});
     item.prepareData();
     item.prepareFinalAttributes();
     item.applyActiveEffects();
