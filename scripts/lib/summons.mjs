@@ -1,13 +1,17 @@
 import {summonEvents} from '../events/_module.mjs';
 import {actorUtils, folderUtils, genericUtils, documentUtils, crosshairUtils, animationUtils} from '../utilities/_module.mjs';
 export class SummonsManager {
-    constructor() {
-        this.summons = new Map();
-    }
+    #summons = new Map();
+    static #manager;
     static create() {
-        const manager = new SummonsManager();
-        manager.#init();
-        return manager;
+        if (this.#manager) return this.#manager;
+        const newManager = new SummonsManager();
+        newManager.#init().catch(err => console.error(err));
+        this.manager = newManager;
+        return this.#manager;
+    }
+    get summons() {
+        return [...this.#summons.values()];
     }
     async #init() {
         const existingSummons = game.actors.filter(actor => actor.flags.cat?.summon);
@@ -23,9 +27,9 @@ export class SummonsManager {
             if (!owner || !sourceActor || !created) return;
             return new Summon(owner, sourceActor, created, {actor, duration, placeAnimation, removeAnimation, placeAlpha});
         }))).filter(Boolean);
-        resolvedSummons.forEach(summon => this.summons.set(summon.actor.id, summon));
+        resolvedSummons.forEach(summon => this.#summons.set(summon.actor.id, summon));
     }
-    async getRootFolder() {
+    async #getRootFolder() {
         let folder = game.folders.find(f => f.flags.cat?.summonFolder && f.type === 'Actor');
         if (!folder) {
             folder = await folderUtils.createFolder({
@@ -36,8 +40,8 @@ export class SummonsManager {
         }
         return folder;
     }
-    async getOwnerFolder(actor) {
-        const rootFolder = await this.getRootFolder();
+    async #getOwnerFolder(actor) {
+        const rootFolder = await this.#getRootFolder();
         let folder = game.folders.find(f => f.flags.cat?.summonOwner === actor.uuid && f.type === 'Actor');
         if (!folder) {
             folder = await folderUtils.createFolder({
@@ -49,7 +53,7 @@ export class SummonsManager {
         }
         return folder;
     }
-    async prepareSidebarActor(summon, created = game.time.worldTime, {avatar, token, name, updates, removeAnimation, placeAnimation, placeAlpha} = {}) {
+    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatar, token, name, updates, removeAnimation, placeAnimation, placeAlpha} = {}) {
         const actorData = summon.sourceActor.toObject();
         delete actorData._id;
         delete actorData.sort;
@@ -64,7 +68,7 @@ export class SummonsManager {
         genericUtils.mergeObject(actorData, updates);
         genericUtils.setProperty(actorData, 'prototypeToken.actorLink', true);
         actorData.ownership = summon.owner.toObject().ownership;
-        actorData.folder = (await this.getOwnerFolder(summon.owner)).id;
+        actorData.folder = (await this.#getOwnerFolder(summon.owner)).id;
         genericUtils.setProperty(actorData, 'flags.cat.summon', {
             owner: summon.owner.uuid,
             sourceActor: summon.sourceActor.uuid,
@@ -78,26 +82,31 @@ export class SummonsManager {
     }
     async createSummon(ownerActor, sourceActor, created = game.time.worldTime, options = {}) {
         const summon = new Summon(ownerActor, sourceActor, options);
-        summon.actor = await this.prepareSidebarActor(summon, created, options);
-        this.summons.set(summon.actor.id, summon);
+        summon.actor = await this.#prepareSidebarActor(summon, created, options);
+        this.#summons.set(summon.actor.id, summon);
         await summonEvents.create(summon);
         return summon;
     }
-    async deleteSummon(summon) {
+    async deleteSummon(summon, {preAnimation, postAnimation} = {}) {
         if (!summon.actor) return;
         await summonEvents.preDelete(summon);
         const actorId = summon.actor.id;
-        await Promise.all(game.scenes.map(scene => {
+        await Promise.all(game.scenes.map(async scene => {
             const tokenIds = scene.tokens.filter(token => token.actorId === actorId).map(token => token.id);
             if (!tokenIds.length) return;
-            return documentUtils.deleteEmbeddedDocuments(scene, 'Token', tokenIds);
-        }).filter(Boolean));
+            if (scene === canvas?.scene) {
+                const tokens = actorUtils.getTokens(summon.actor);
+                return Promise.all(tokens.map(token => this.removeSummon(summon, {preAnimation, postAnimation, token})));
+            } else {
+                return documentUtils.deleteEmbeddedDocuments(scene, 'Token', tokenIds);
+            }
+        }));
         await documentUtils.deleteDocument(summon.actor);
-        this.summons.delete(actorId);
+        this.#summons.delete(actorId);
     }
     async checkDurations(worldTime) {
         const expiredSummons = [];
-        this.summons.forEach(summon => {
+        this.#summons.forEach(summon => {
             if (!summon.duration) return;
             if (summon.getTimeRemaining(worldTime) > 0) return;
             expiredSummons.push(summon);
@@ -105,7 +114,7 @@ export class SummonsManager {
         if (!expiredSummons.length) return;
         await Promise.all(expiredSummons.map(summon => this.deleteSummon(summon)));
     }
-    static async placeSummon(summon, range, {preAnimation, postAnimation, alpha} = {}) {
+    async placeSummon(summon, range, {preAnimation, postAnimation, alpha} = {}) {
         const sourceToken = actorUtils.getFirstToken(summon.owner);
         if (!sourceToken) return;
         const summonImg = summon.actor.prototypeToken.texture.src;
@@ -123,7 +132,7 @@ export class SummonsManager {
         if (!result || result.cancelled) return;
         return await this.spawnSummon(summon, sourceToken.scene, result, {preAnimation, postAnimation, alpha});
     }
-    static async spawnSummon(summon, scene, location, {preAnimation, postAnimation, alpha} = {}) {
+    async spawnSummon(summon, scene, location, {preAnimation, postAnimation, alpha} = {}) {
         const preToken = await summon.actor.getTokenDocument({
             x: location.x,
             y: location.y,
@@ -142,13 +151,19 @@ export class SummonsManager {
         if (postAnimation) await postAnimation(summon, location, token);
         return token;
     }
-    async removeSummon(summon, {preAnimation, postAnimation} = {}) {
-        const token = summon.token;
+    async removeSummon(summon, {preAnimation, postAnimation, token} = {}) {
+        token ??= summon.token;
         if (!token) return;
         await summonEvents.remove(summon);
         if (preAnimation) await preAnimation(summon, token);
         await documentUtils.deleteDocument(token);
         if (postAnimation) await postAnimation(summon, token);
+    }
+    getSummons(actor) {
+        return this.summons.filter(summon => summon.owner.uuid === actor.uuid);
+    }
+    getSummonData(actor) {
+        return this.#summons.get(actor.id);
     }
 }
 export class Summon {
