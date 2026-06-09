@@ -227,6 +227,10 @@
         "AvatarImg": "Actor Image Override",
         "TokenImg": "Token Image Override"
       },
+      "PackFolder": {
+        "Folder": "Folder",
+        "Pack": "Pack"
+      },
       "Region": {
         "Visibility": "Visibility",
         "MagicalDarkness": {

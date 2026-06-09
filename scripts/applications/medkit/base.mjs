@@ -303,6 +303,14 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 ];
                 break;
             }
+            case 'packOrFolderMultiSelect': {
+                const selectedValues = Array.isArray(value) ? value : [];
+                option.isMultiCombobox = true;
+                option.choices = this.#packFolderChoices(descriptor.documentType ?? 'Actor')
+                    .map(o => ({value: o.value, label: o.label, tag: o.tag, selected: selectedValues.includes(o.value)}));
+                option.value = selectedValues;
+                break;
+            }
             default: option.field = new fields.StringField({label});
         }
     }
@@ -322,7 +330,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             default: d?.default,
             options: d?.options,
             fileType: d?.fileType,
-            inputs: d?.inputs
+            inputs: d?.inputs,
+            documentType: d?.documentType
         }));
     }
 
@@ -380,6 +389,18 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         return game.actors
             .map(a => ({value: a.uuid, label: a.name, image: a.img}))
             .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
+    }
+
+    // Sidebar folders + compendium packs of a document type, for packOrFolderMultiSelect.
+    // Values are prefixed (folder:<id> / pack:<id>) so consumers can resolve either kind.
+    #packFolderChoices(documentType) {
+        const folders = game.folders
+            .filter(f => f.type === documentType)
+            .map(f => ({value: `folder:${f.id}`, label: f.name, tag: _loc('CAT.MEDKIT.PackFolder.Folder')}));
+        const packs = game.packs
+            .filter(p => p.metadata.type === documentType)
+            .map(p => ({value: `pack:${p.metadata.id}`, label: p.metadata.label, tag: _loc('CAT.MEDKIT.PackFolder.Pack')}));
+        return [...folders, ...packs].sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
     }
 
     // Every registered animation, for selectAnimation descriptors. Value encodes source|identifier.
