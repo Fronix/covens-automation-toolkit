@@ -155,13 +155,13 @@ export class SummonsManager {
         });
         if (preAnimation) await preAnimation(summon, location, preToken);
         if (summon.prePlaceAnimation) {
-            const animation = animationUtils.getAnimation(summon.prePlaceAnimation);
-            if (animation) await animation(summon, location, preToken);
+            const animation = animationUtils.getAnimation(summon.prePlaceAnimation.source, summon.prePlaceAnimation.identifier);
+            if (animation?.macros?.summon) await animation.macros.summon(summon, location, preToken);
         }
         const token = (await documentUtils.createEmbeddedDocuments(scene, 'Token', [preToken.toObject()], {cat: {summonCreate: true}}))?.[0];
         if (summon.postPlaceAnimation) {
-            const animation = animationUtils.getAnimation(summon.postPlaceAnimation);
-            if (animation) await animation(summon, location, token);
+            const animation = animationUtils.getAnimation(summon.postPlaceAnimation.source, summon.postPlaceAnimation.identifier);
+            if (animation?.macros?.summon) await animation.summon(summon, location, token);
         }
         if (postAnimation) await postAnimation(summon, location, token);
         return token;
@@ -172,14 +172,14 @@ export class SummonsManager {
         await summonEvents.remove(summon);
         if (preAnimation) await preAnimation(summon, token);
         if (summon.preRemoveAnimation) {
-            const animation = animationUtils.getAnimation(summon.preRemoveAnimation);
-            if (animation) await animation(summon, token);
+            const animation = animationUtils.getAnimation(summon.preRemoveAnimation.source, summon.preRemoveAnimation.identifier);
+            if (animation?.macros?.summon) await animation.macros.summon(summon, token);
         }
         const location = {x: token.x, y: token.y, elevation: token.elevation};
         await documentUtils.deleteDocument(token, {options: {cat: {summonRemove: true}}});
         if (summon.postRemoveAnimation) {
-            const animation = animationUtils.getAnimation(summon.postRemoveAnimation);
-            if (animation) await animation(summon, location, token);
+            const animation = animationUtils.getAnimation(summon.postRemoveAnimation.source, summon.postRemoveAnimation.identifier);
+            if (animation?.macros?.summon) await animation.macros.summon(summon, location, token);
         }
         if (postAnimation) await postAnimation(summon, location, token);
     }
