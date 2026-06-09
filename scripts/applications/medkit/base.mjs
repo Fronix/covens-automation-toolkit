@@ -291,6 +291,18 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 option.addTooltip = 'CAT.MEDKIT.Generic.AddIdentifier';
                 option.entries = (Array.isArray(value) ? value : []).map(v => ({value: v, label: v}));
                 break;
+            case 'selectSummons': {
+                const stored = (value && typeof value === 'object') ? value : {};
+                const base = option.name;
+                option.isSummonSelect = true;
+                option.summonFields = [
+                    {key: 'uuid', name: `${base}.uuid`, label: _loc('CAT.MEDKIT.Summons.Actor'), value: stored.uuid ?? '', isCombobox: true, allowBlank: true, choices: this.#actorChoices()},
+                    this.#buildOption({key: 'name', type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.name`, value: stored.name}),
+                    this.#buildOption({key: 'avatarImg', type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.avatarImg`, value: stored.avatarImg}),
+                    this.#buildOption({key: 'tokenImg', type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.tokenImg`, value: stored.tokenImg})
+                ];
+                break;
+            }
             default: option.field = new fields.StringField({label});
         }
     }
@@ -361,6 +373,13 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const activities = this.#document.system?.activities;
         if (!activities) return [];
         return [...activities].map(a => ({value: a.id, label: a.name ?? a.id, image: a.img}));
+    }
+
+    // World actors, for selectSummons source-actor selection.
+    #actorChoices() {
+        return game.actors
+            .map(a => ({value: a.uuid, label: a.name, image: a.img}))
+            .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
     }
 
     // Every registered animation, for selectAnimation descriptors. Value encodes source|identifier.

@@ -42,6 +42,13 @@
             {{/each}}
         </fieldset>
     {{/if}}
+{{else if isSummonSelect}}
+    <fieldset class="cat-generic-summon-options" data-section="summon-fields">
+        <legend>{{label}}</legend>
+        {{#each summonFields}}
+            {{> "modules/cat/templates/medkit/shared/option-field.hbs" this}}
+        {{/each}}
+    </fieldset>
 {{else if isList}}
     <div class="form-group cat-medkit-documents" data-flag-path="{{configPath}}" data-validate="{{validate}}">
         <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>

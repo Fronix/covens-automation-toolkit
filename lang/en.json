@@ -221,6 +221,12 @@
         "Add": "Add document",
         "InvalidUuid": "No document found for that UUID."
       },
+      "Summons": {
+        "Actor": "Summon Actor",
+        "Name": "Name Override",
+        "AvatarImg": "Actor Image Override",
+        "TokenImg": "Token Image Override"
+      },
       "Region": {
         "Visibility": "Visibility",
         "MagicalDarkness": {

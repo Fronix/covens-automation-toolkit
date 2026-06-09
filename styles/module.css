@@ -1118,7 +1118,8 @@ cat-combobox {
     margin-bottom: 0;
 }
 
-.cat-medkit fieldset.cat-generic-animation-options {
+.cat-medkit fieldset.cat-generic-animation-options,
+.cat-medkit fieldset.cat-generic-summon-options {
     margin: 0 0 var(--cat-space-md) var(--cat-space-md);
     background: rgb(0 0 0 / 20%);
 }
