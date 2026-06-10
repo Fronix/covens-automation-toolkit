@@ -86,7 +86,7 @@ export class SummonsManager {
             placeAlpha,
             preRemoveAnimation,
             postRemoveAnimation,
-            parent: summon.parent.uuid
+            parent: summon.parent?.uuid
         });
         return await actorUtils.createActor(actorData);
     }
