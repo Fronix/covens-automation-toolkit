@@ -313,7 +313,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                         {key: `summon-uuid-${i}`, name: `${base}.${i}.sourceActorUuid`, label: _loc('CAT.MEDKIT.Summons.Actor'), value: entry.sourceActorUuid ?? '', isCombobox: true, allowBlank: true, choices: this.#actorChoices()},
                         this.#buildOption({key: `summon-name-${i}`, type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.${i}.name`, value: entry.name}),
                         this.#buildOption({key: `summon-avatar-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.${i}.avatarImg`, value: entry.avatarImg}),
-                        this.#buildOption({key: `summon-token-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.${i}.tokenImg`, value: entry.tokenImg})
+                        this.#buildOption({key: `summon-token-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.${i}.tokenImg`, value: entry.tokenImg}),
+                        {key: `summon-anim-${i}`, name: `${base}.${i}.animation`, label: _loc('CAT.MEDKIT.Summons.Animation'), value: entry.animation?.source ? `${entry.animation.source}|${entry.animation.identifier}` : '', isAnimationSelect: true, choices: this.#animationChoices(['summon', 'location', 'token'])}
                     ]
                 }));
                 break;

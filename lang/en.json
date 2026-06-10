@@ -237,6 +237,7 @@
         "Name": "Name Override",
         "AvatarImg": "Actor Image Override",
         "TokenImg": "Token Image Override",
+        "Animation": "Animation",
         "Add": "Add summon"
       },
       "PackFolder": {
