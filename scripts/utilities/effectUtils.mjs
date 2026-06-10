@@ -58,10 +58,14 @@ function getOriginActivitySync(effect) {
         );
     }
 }
+function getConcentrationEffect(actor, item) {
+    return MidiQOL.getConcentrationEffect(actor, item);
+}
 export default {
     getCastData,
     createEffects,
     getConditions,
     getOriginActivity,
-    getOriginActivitySync
+    getOriginActivitySync,
+    getConcentrationEffect
 };

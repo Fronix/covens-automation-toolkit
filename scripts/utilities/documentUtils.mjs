@@ -98,6 +98,10 @@ function getEffectByIdentifier(document, identifier, {multiple, includeItemEffec
     if (!multiple) return effects.find(predicate);
     return effects.filter(predicate);
 }
+async function makeDependent(parentDocument, childDocuments = []) {
+    if (!childDocuments.length) return;
+    await Promise.all(childDocuments.map(async document => MidiQOL.addDependent(parentDocument, document)));
+}
 export default {
     getRules,
     getSource,
@@ -110,5 +114,6 @@ export default {
     update,
     updateEmbeddedDocuments,
     setFlag,
-    getEffectByIdentifier
+    getEffectByIdentifier,
+    makeDependent
 };
