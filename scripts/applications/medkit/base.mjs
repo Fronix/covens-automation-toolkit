@@ -300,10 +300,9 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             case 'selectSummons': {
                 const stored = (value && typeof value === 'object') ? value : {};
                 const base = option.name;
-                const summonAnimations = this.#summonAnimationChoices();
-                const animField = (key, label) => {
+                const animField = (key, label, macroKey) => {
                     const sel = stored[key];
-                    return {key, name: `${base}.${key}`, label: _loc(label), value: sel?.source ? `${sel.source}|${sel.identifier}` : '', isAnimationSelect: true, choices: summonAnimations};
+                    return {key, name: `${base}.${key}`, label: _loc(label), value: sel?.source ? `${sel.source}|${sel.identifier}` : '', isAnimationSelect: true, choices: this.#summonAnimationChoices(macroKey)};
                 };
                 option.isSummonSelect = true;
                 option.summonFields = [
@@ -311,10 +310,10 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                     this.#buildOption({key: 'name', type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.name`, value: stored.name}),
                     this.#buildOption({key: 'avatarImg', type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.avatarImg`, value: stored.avatarImg}),
                     this.#buildOption({key: 'tokenImg', type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.tokenImg`, value: stored.tokenImg}),
-                    animField('prePlaceAnimation', 'CAT.MEDKIT.Summons.PrePlace'),
-                    animField('postPlaceAnimation', 'CAT.MEDKIT.Summons.PostPlace'),
-                    animField('preRemoveAnimation', 'CAT.MEDKIT.Summons.PreRemove'),
-                    animField('postRemoveAnimation', 'CAT.MEDKIT.Summons.PostRemove')
+                    animField('prePlaceAnimation', 'CAT.MEDKIT.Summons.PrePlace', 'prePlace'),
+                    animField('postPlaceAnimation', 'CAT.MEDKIT.Summons.PostPlace', 'postPlace'),
+                    animField('preRemoveAnimation', 'CAT.MEDKIT.Summons.PreRemove', 'preRemove'),
+                    animField('postRemoveAnimation', 'CAT.MEDKIT.Summons.PostRemove', 'postRemove')
                 ];
                 break;
             }
@@ -408,10 +407,10 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
     }
 
-    // Registered animations exposing a summon macro, for selectSummons animation slots.
-    #summonAnimationChoices() {
+    // Registered animations exposing the given summon macro (prePlace/postPlace/preRemove/postRemove).
+    #summonAnimationChoices(macroKey) {
         return (constants.animations?.animations ?? [])
-            .filter(a => typeof a.macros?.summon === 'function')
+            .filter(a => typeof a.macros?.[macroKey] === 'function')
             .map(a => ({value: `${a.source}|${a.identifier}`, label: a.name ? _loc(a.name) : a.identifier}));
     }
 
