@@ -73,6 +73,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             removeEmbeddedMacro: MedkitApp.#removeEmbeddedMacro,
             addListEntry: MedkitApp.#addListEntry,
             removeListEntry: MedkitApp.#removeListEntry,
+            addSummonEntry: MedkitApp.#addSummonEntry,
+            removeSummonEntry: MedkitApp.#removeSummonEntry,
             openSequencerDb: MedkitApp.#openSequencerDb,
             massApply: MedkitApp.#massApply
         }
@@ -298,23 +300,22 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 option.entries = (Array.isArray(value) ? value : []).map(v => ({value: v, label: v}));
                 break;
             case 'selectSummons': {
-                const stored = (value && typeof value === 'object') ? value : {};
+                const entries = Array.isArray(value) ? value : [];
                 const base = option.name;
-                const animField = (key, label, macroKey) => {
-                    const sel = stored[key];
-                    return {key, name: `${base}.${key}`, label: _loc(label), value: sel?.source ? `${sel.source}|${sel.identifier}` : '', isAnimationSelect: true, choices: this.#summonAnimationChoices(macroKey)};
-                };
+                const max = Number.isFinite(descriptor.max) ? descriptor.max : Infinity;
                 option.isSummonSelect = true;
-                option.summonFields = [
-                    {key: 'uuid', name: `${base}.uuid`, label: _loc('CAT.MEDKIT.Summons.Actor'), value: stored.uuid ?? '', isCombobox: true, allowBlank: true, choices: this.#actorChoices()},
-                    this.#buildOption({key: 'name', type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.name`, value: stored.name}),
-                    this.#buildOption({key: 'avatarImg', type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.avatarImg`, value: stored.avatarImg}),
-                    this.#buildOption({key: 'tokenImg', type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.tokenImg`, value: stored.tokenImg}),
-                    animField('prePlaceAnimation', 'CAT.MEDKIT.Summons.PrePlace', 'prePlace'),
-                    animField('postPlaceAnimation', 'CAT.MEDKIT.Summons.PostPlace', 'postPlace'),
-                    animField('preRemoveAnimation', 'CAT.MEDKIT.Summons.PreRemove', 'preRemove'),
-                    animField('postRemoveAnimation', 'CAT.MEDKIT.Summons.PostRemove', 'postRemove')
-                ];
+                option.max = Number.isFinite(max) ? max : '';
+                option.canAdd = entries.length < max;
+                option.summonEntries = entries.map((entry, i) => ({
+                    index: i,
+                    legend: `${option.label} ${i + 1}`,
+                    fields: [
+                        {key: `summon-uuid-${i}`, name: `${base}.${i}.sourceActorUuid`, label: _loc('CAT.MEDKIT.Summons.Actor'), value: entry.sourceActorUuid ?? '', isCombobox: true, allowBlank: true, choices: this.#actorChoices()},
+                        this.#buildOption({key: `summon-name-${i}`, type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.${i}.name`, value: entry.name}),
+                        this.#buildOption({key: `summon-avatar-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.${i}.avatarImg`, value: entry.avatarImg}),
+                        this.#buildOption({key: `summon-token-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.${i}.tokenImg`, value: entry.tokenImg})
+                    ]
+                }));
                 break;
             }
             case 'packOrFolderMultiSelect': {
@@ -347,7 +348,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             inputs: d?.inputs,
             documentType: d?.documentType,
             sequencer: d?.sequencer,
-            mode: d?.mode
+            mode: d?.mode,
+            max: d?.max
         }));
     }
 
@@ -405,13 +407,6 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         return game.actors
             .map(a => ({value: a.uuid, label: a.name, image: a.img}))
             .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
-    }
-
-    // Registered animations exposing the given summon macro (prePlace/postPlace/preRemove/postRemove).
-    #summonAnimationChoices(macroKey) {
-        return (constants.animations?.animations ?? [])
-            .filter(a => typeof a.macros?.[macroKey] === 'function')
-            .map(a => ({value: `${a.source}|${a.identifier}`, label: a.name ? _loc(a.name) : a.identifier}));
     }
 
     // Sidebar folders + compendium packs of a document type, for packOrFolderMultiSelect.
@@ -708,6 +703,31 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     static #gotoTab(_event, target) {
         const tab = target.dataset.tab;
         if (tab) this.changeTab(tab, 'sheet');
+    }
+
+    // Append a blank entry to a selectSummons list (capped at its max).
+    /** @this {MedkitApp} */
+    static #addSummonEntry(_event, target) {
+        const wrap = target.closest('.cat-summon-list');
+        const path = wrap?.dataset.flagPath;
+        if (!path) return;
+        const max = Number(wrap.dataset.max) || Infinity;
+        const flags = this._getFlags();
+        const list = foundry.utils.getProperty(flags, path) ?? [];
+        if (list.length >= max) return;
+        foundry.utils.setProperty(flags, path, [...list, {}]);
+        this.render();
+    }
+
+    /** @this {MedkitApp} */
+    static #removeSummonEntry(_event, target) {
+        const wrap = target.closest('.cat-summon-list');
+        const path = wrap?.dataset.flagPath;
+        if (!path) return;
+        const flags = this._getFlags();
+        const list = foundry.utils.getProperty(flags, path) ?? [];
+        foundry.utils.setProperty(flags, path, list.filter((_, i) => i !== Number(target.dataset.index)));
+        this.render();
     }
 
     // Open Sequencer's database viewer and route the next copied path into this field's file-picker.

@@ -1137,6 +1137,19 @@ cat-combobox {
     background: rgb(0 0 0 / 20%);
 }
 
+.cat-generic-summon-options > legend {
+    gap: var(--cat-space-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.cat-generic-summon-options > legend > button,
+.cat-summon-add {
+    width: auto;
+}
+
 .cat-sequencer-db {
     flex: 0 0 auto;
     width: auto;

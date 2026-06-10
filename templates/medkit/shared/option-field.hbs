@@ -53,12 +53,26 @@
         </fieldset>
     {{/if}}
 {{else if isSummonSelect}}
-    <fieldset class="cat-generic-summon-options" data-section="summon-fields">
-        <legend>{{label}}</legend>
-        {{#each summonFields}}
-            {{> "modules/cat/templates/medkit/shared/option-field.hbs" this}}
+    <div class="cat-summon-list" data-flag-path="{{configPath}}" data-max="{{max}}">
+        {{#each summonEntries}}
+            <fieldset class="cat-generic-summon-options" data-section="summon-entry">
+                <legend>
+                    <span>{{legend}}</span>
+                    <button type="button" data-action="removeSummonEntry" data-index="{{index}}" data-tooltip="{{localize 'Remove'}}">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </legend>
+                {{#each fields}}
+                    {{> "modules/cat/templates/medkit/shared/option-field.hbs" this}}
+                {{/each}}
+            </fieldset>
         {{/each}}
-    </fieldset>
+        {{#if canAdd}}
+            <button type="button" class="cat-summon-add" data-action="addSummonEntry">
+                <i class="fa-solid fa-plus"></i> {{localize "CAT.MEDKIT.Summons.Add"}}
+            </button>
+        {{/if}}
+    </div>
 {{else if isList}}
     <div class="form-group cat-medkit-documents" data-flag-path="{{configPath}}" data-validate="{{validate}}">
         <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
