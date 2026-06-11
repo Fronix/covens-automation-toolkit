@@ -15,7 +15,8 @@ export class RegisteredAnimations {
             requirements: new fields.ArrayField(new fields.StringField({required: false, nullable: false}), {required: false}),
             type: new fields.StringField({required: false, nullable: false}),
             config: new fields.ObjectField({required: false, nullable: false}),
-            category: new fields.StringField({required: false, nullable: false})
+            category: new fields.StringField({required: false, nullable: false}),
+            credits: new fields.ArrayField(new fields.StringField({required: true, nullable: false}), {required: false, nullable: false})
         });
         this.#multiAnimationSchema = new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}));
     }
@@ -25,7 +26,7 @@ export class RegisteredAnimations {
             Logging.addRegistrationError(data, validationError.asError());
             return false;
         }
-        this.animations.push(new Animation(data.source, data.identifier, data.name, data.macros, data.inputs, {requirements: data.requirements, type: data.type, config: data.config, category: data.category}));
+        this.animations.push(new Animation(data.source, data.identifier, data.name, data.macros, data.inputs, {requirements: data.requirements, type: data.type, config: data.config, category: data.category, credits: data.credits}));
         return true;
     }
     registerAnimations(data = []) {
@@ -54,7 +55,7 @@ export class RegisteredAnimations {
     }
 }
 class Animation {
-    constructor(source, identifier, name, macros, inputs, {requirements, type, config, category} = {}) {
+    constructor(source, identifier, name, macros, inputs, {requirements, type, config, category, credits} = {}) {
         this.source = source;
         this.identifier = identifier;
         this.name = name;
@@ -64,6 +65,7 @@ class Animation {
         this.type = type;
         this.config = config;
         this.category = category ?? 'default';
+        this.credits = credits;
     }
 }
 export default {
