@@ -23,9 +23,11 @@ export class SummonsManager {
             const created = summonData.created;
             const duration = summonData.duration;
             const animation = summonData.animation;
+            const sourceDocument = summonData.sourceDocument ? await fromUuid(summonData.sourceDocument) : undefined;;
             const parent = summonData.parent ? await fromUuid(summonData.parent) : undefined;
+            const sounds = summonData.sounds;
             if (!owner || !sourceActor || created === undefined) return;
-            return new Summon(owner, sourceActor, created, {actor, duration, animation, parent});
+            return new Summon(owner, sourceActor, created, {actor, duration, animation, parent, sourceDocument, sounds});
         }))).filter(Boolean);
         resolvedSummons.forEach(summon => this.#summons.set(summon.actor.id, summon));
     }
@@ -54,7 +56,7 @@ export class SummonsManager {
         }
         return folder;
     }
-    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition} = {}) {
+    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition, sourceDocument, sounds} = {}) {
         const actorData = summon.sourceActor.toObject();
         delete actorData._id;
         delete actorData.sort;
@@ -78,7 +80,9 @@ export class SummonsManager {
             created,
             duration: summon.duration,
             animation,
-            parent: summon.parent?.uuid
+            parent: summon.parent?.uuid,
+            sourceDocument: sourceDocument?.uuid,
+            sounds
         });
         return await actorUtils.createActor(actorData);
     }
