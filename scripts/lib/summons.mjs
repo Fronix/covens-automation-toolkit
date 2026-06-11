@@ -61,6 +61,7 @@ export class SummonsManager {
         delete actorData._id;
         delete actorData.sort;
         updates ??= {};
+        sounds ??= {};
         if (avatarImg) actorData.img = avatarImg;
         if (tokenImg) genericUtils.setProperty(actorData, 'prototypeToken.texture.src', tokenImg);
         if (name) {
@@ -175,7 +176,7 @@ export class SummonsManager {
     }
 }
 export class Summon {
-    constructor(owner, sourceActor, created, {actor, duration, animation, parent} = {}) {
+    constructor(owner, sourceActor, created, {actor, duration, animation, parent, sounds} = {}) {
         this.sourceActor = sourceActor;
         this.owner = owner;
         this.actor = actor;
@@ -183,6 +184,7 @@ export class Summon {
         this.duration = duration;
         this.animation = animation;
         this.parent = parent;
+        this.sounds = sounds ?? {};
     }
     get token() {
         return actorUtils.getFirstToken(this.actor);

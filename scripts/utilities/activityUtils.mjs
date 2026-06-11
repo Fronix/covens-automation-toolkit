@@ -81,8 +81,8 @@ function syntheticActivity(activityData, item) {
     const newItem = itemUtils.syntheticItem(itemData, item.actor);
     return newItem.system.activities.get(activityData._id);
 }
-function convertDuration(activity) {
-    return DAE.convertDuration(activity.duration);
+function getDuration(activity) {
+    return activity.duration.getEffectData().seconds;
 }
 export default {
     getSaveDC,
@@ -90,5 +90,5 @@ export default {
     getConditions,
     getDamageModifiedActivityData,
     syntheticActivity,
-    convertDuration
+    getDuration
 };
