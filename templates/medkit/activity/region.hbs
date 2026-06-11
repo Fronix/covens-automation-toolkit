@@ -10,7 +10,7 @@
         <legend>{{localize "CAT.MEDKIT.Activity.Effects.Label"}}</legend>
         {{#if effectChoices.length}}
             <div class="form-group">
-                <label for="cat-medkit-region-effects">{{localize "CAT.MEDKIT.Activity.Effects.Field"}}</label>
+                <label>{{localize "CAT.MEDKIT.Activity.Effects.Field"}}</label>
                 <div class="form-fields">
                     <cat-multi-combobox input-id="cat-medkit-region-effects" name="flags.cat.placed.region.effects">
                         {{#each effectChoices}}
@@ -29,7 +29,7 @@
         <legend>{{localize "CAT.MEDKIT.Activity.RegionMacros.Label"}}</legend>
         {{#if regionMacroChoices.length}}
             <div class="form-group cat-multi-combobox-group">
-                <label for="cat-medkit-region-macros">{{localize "CAT.MEDKIT.Macros.Picker.Field"}}</label>
+                <label>{{localize "CAT.MEDKIT.Macros.Picker.Field"}}</label>
                 <cat-multi-combobox input-id="cat-medkit-region-macros" name="flags.cat.placed.region.macros">
                     {{#each regionMacroChoices}}
                         <option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>
@@ -46,7 +46,7 @@
         <legend>{{localize "CAT.MEDKIT.Activity.Activities.Label"}}</legend>
         {{#if activityChoices.length}}
             <div class="form-group">
-                <label for="cat-medkit-region-activities">{{localize "CAT.MEDKIT.Activity.Activities.Field"}}</label>
+                <label>{{localize "CAT.MEDKIT.Activity.Activities.Field"}}</label>
                 <div class="form-fields">
                     <cat-multi-combobox input-id="cat-medkit-region-activities" name="flags.cat.placed.region.activities">
                         {{#each activityChoices}}

@@ -292,6 +292,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 option.choices = this.#animationChoices(descriptor.inputs);
                 option.value = sel?.source ? `${sel.source}|${sel.identifier}` : '';
                 option.animationOptions = this.#animationSubOptions(source, identifier, sel);
+                option.animationCredits = this.#animationCredits(sel);
                 break;
             }
             case 'selectIdentifiers':
@@ -316,7 +317,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                         this.#buildOption({key: `summon-name-${i}`, type: 'text', label: 'CAT.MEDKIT.Summons.Name'}, {name: `${base}.${i}.name`, value: entry.name}),
                         this.#buildOption({key: `summon-avatar-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.AvatarImg'}, {name: `${base}.${i}.avatarImg`, value: entry.avatarImg}),
                         this.#buildOption({key: `summon-token-${i}`, type: 'file', label: 'CAT.MEDKIT.Summons.TokenImg'}, {name: `${base}.${i}.tokenImg`, value: entry.tokenImg}),
-                        {key: `summon-anim-${i}`, name: `${base}.${i}.animation`, label: _loc('CAT.MEDKIT.Summons.Animation'), value: entry.animation?.source ? `${entry.animation.source}|${entry.animation.identifier}` : '', isAnimationSelect: true, choices: this.#animationChoices(['summon', 'location', 'token'])},
+                        {key: `summon-anim-${i}`, name: `${base}.${i}.animation`, label: _loc('CAT.MEDKIT.Summons.Animation'), value: entry.animation?.source ? `${entry.animation.source}|${entry.animation.identifier}` : '', isAnimationSelect: true, choices: this.#animationChoices(['summon', 'location', 'token']), animationCredits: this.#animationCredits(entry.animation)},
                         this.#buildOption({key: `summon-sound-place-${i}`, type: 'file', fileType: 'audio', label: 'CAT.MEDKIT.Summons.SoundPlaced'}, {name: `${base}.${i}.sounds.place`, value: entry.sounds?.place}),
                         this.#buildOption({key: `summon-sound-removed-${i}`, type: 'file', fileType: 'audio', label: 'CAT.MEDKIT.Summons.SoundRemoved'}, {name: `${base}.${i}.sounds.removed`, value: entry.sounds?.removed}),
                         this.#buildOption({key: `summon-sound-death-${i}`, type: 'file', fileType: 'audio', label: 'CAT.MEDKIT.Summons.SoundDeath'}, {name: `${base}.${i}.sounds.death`, value: entry.sounds?.death})
@@ -453,6 +454,13 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             });
         }
         return animations.map(a => ({value: `${a.source}|${a.identifier}`, label: a.name ? _loc(a.name) : a.identifier}));
+    }
+
+    // Author credits declared on the selected animation, for display next to the picker.
+    #animationCredits(selection) {
+        if (!selection?.source || !selection?.identifier) return [];
+        const animation = constants.animations?.getAnimation(selection.source, selection.identifier);
+        return animation?.credits ?? [];
     }
 
     // Sub-option fields from the selected animation's own config; persisted under flags.cat.animationGenericConfig.

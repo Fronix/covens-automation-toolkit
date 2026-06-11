@@ -3,7 +3,7 @@
         <legend>{{localize "CAT.MEDKIT.Generic.SelectLabel"}}</legend>
         {{#if genericChoices.length}}
             <div class="form-group cat-multi-combobox-group">
-                <label for="cat-medkit-generic-select">{{localize "CAT.MEDKIT.Generic.SelectField"}}</label>
+                <label>{{localize "CAT.MEDKIT.Generic.SelectField"}}</label>
                 <cat-multi-combobox input-id="cat-medkit-generic-select" name="flags.cat.genericConfig">
                     {{#each genericChoices}}
                         <option value="{{value}}" data-image="{{image}}"{{#if selected}} selected{{/if}}>{{label}}</option>

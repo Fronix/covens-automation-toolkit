@@ -16,7 +16,11 @@ export class RegisteredAnimations {
             type: new fields.StringField({required: false, nullable: false}),
             config: new fields.ObjectField({required: false, nullable: false}),
             category: new fields.StringField({required: false, nullable: false}),
-            credits: new fields.ArrayField(new fields.StringField({required: true, nullable: false}), {required: false, nullable: false})
+            credits: new fields.ArrayField(new fields.SchemaField({
+                name: new fields.StringField({required: true, nullable: false}),
+                discord: new fields.StringField({required: false, nullable: false}),
+                patreon: new fields.StringField({required: false, nullable: false})
+            }), {required: false, nullable: false})
         });
         this.#multiAnimationSchema = new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}));
     }

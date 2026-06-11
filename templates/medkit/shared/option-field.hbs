@@ -2,7 +2,7 @@
     {{formGroup field name=name value=value hint=i18nOption dataset=(ifThen tooltip (object tooltip=tooltip))}}
 {{else if isCombobox}}
     <div class="form-group">
-        <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
+        <label{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
         <div class="form-fields">
             <cat-combobox input-id="cat-medkit-opt-{{key}}" name="{{name}}" value="{{value}}">
                 {{#if allowBlank}}<option value=""></option>{{/if}}
@@ -14,7 +14,7 @@
     </div>
 {{else if isMultiCombobox}}
     <div class="form-group">
-        <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
+        <label{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
         <div class="form-fields">
             <cat-multi-combobox input-id="cat-medkit-opt-{{key}}" name="{{name}}">
                 {{#each choices}}
@@ -25,7 +25,7 @@
     </div>
 {{else if isSequencerFile}}
     <div class="form-group">
-        <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
+        <label{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
         <div class="form-fields">
             <file-picker input-id="cat-medkit-opt-{{key}}" name="{{name}}" type="{{fileType}}" value="{{value}}"></file-picker>
             <button type="button" class="cat-sequencer-db" data-action="openSequencerDb" data-tooltip="{{localize 'CAT.MEDKIT.Sequencer.Browse'}}">
@@ -35,7 +35,7 @@
     </div>
 {{else if isAnimationSelect}}
     <div class="form-group">
-        <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
+        <label{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
         <div class="form-fields">
             <cat-combobox data-animation-select input-id="cat-medkit-opt-{{key}}" name="{{name}}" value="{{value}}">
                 <option value=""></option>
@@ -44,6 +44,9 @@
                 {{/each}}
             </cat-combobox>
         </div>
+        {{#if animationCredits.length}}
+            <p class="hint">{{localize "CAT.MEDKIT.Animation.Credits"}}{{#each animationCredits}} {{name}}{{#if discord}} <a href="{{discord}}" target="_blank" rel="noopener" data-tooltip="{{localize 'CAT.MEDKIT.Animation.Discord'}}"><i class="fa-brands fa-discord"></i></a>{{/if}}{{#if patreon}} <a href="{{patreon}}" target="_blank" rel="noopener" data-tooltip="{{localize 'CAT.MEDKIT.Animation.Patreon'}}"><i class="fa-brands fa-patreon"></i></a>{{/if}}{{/each}}</p>
+        {{/if}}
     </div>
     {{#if animationOptions.length}}
         <fieldset class="cat-generic-animation-options" data-section="animation-suboptions">
@@ -75,7 +78,7 @@
     </div>
 {{else if isList}}
     <div class="form-group cat-medkit-documents" data-flag-path="{{configPath}}" data-validate="{{validate}}">
-        <label for="cat-medkit-opt-{{key}}"{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
+        <label{{#if tooltip}} data-tooltip="{{tooltip}}"{{/if}}>{{label}}</label>
         <div class="form-fields">
             <input id="cat-medkit-opt-{{key}}" type="text" placeholder="{{localize placeholder}}">
             <button type="button" data-action="addListEntry" data-tooltip="{{localize addTooltip}}">

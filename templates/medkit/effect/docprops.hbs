@@ -4,7 +4,7 @@
     <fieldset data-section="conditions">
         <legend>{{localize "CAT.MEDKIT.Effect.Conditions.Label"}}</legend>
         <div class="form-group cat-multi-combobox-group">
-            <label for="cat-medkit-effect-conditions">{{localize "CAT.MEDKIT.Effect.Conditions.Label"}}</label>
+            <label>{{localize "CAT.MEDKIT.Effect.Conditions.Label"}}</label>
             <cat-multi-combobox input-id="cat-medkit-effect-conditions" name="flags.cat.conditions">
                 {{#each conditionChoices}}
                     <option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>
@@ -17,7 +17,7 @@
     <fieldset data-section="special-durations">
         <legend>{{localize "CAT.MEDKIT.Effect.SpecialDuration.Label"}}</legend>
         <div class="form-group cat-multi-combobox-group">
-            <label for="cat-medkit-effect-durations">{{localize "CAT.MEDKIT.Effect.SpecialDuration.Label"}}</label>
+            <label>{{localize "CAT.MEDKIT.Effect.SpecialDuration.Label"}}</label>
             <cat-multi-combobox input-id="cat-medkit-effect-durations" name="flags.cat.specialDuration">
                 {{#each specialDurationChoices}}
                     <option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>

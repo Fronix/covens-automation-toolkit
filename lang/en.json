@@ -250,6 +250,11 @@
       "Sequencer": {
         "Browse": "Browse Sequencer Database"
       },
+      "Animation": {
+        "Credits": "Animation by",
+        "Discord": "Discord",
+        "Patreon": "Patreon"
+      },
       "Region": {
         "Visibility": "Visibility",
         "MagicalDarkness": {
