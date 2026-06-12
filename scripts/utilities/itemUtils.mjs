@@ -149,6 +149,11 @@ function getEquipmentState(item) {
     if (item.system.attunement && item.system.attunement === 1) return false;
     return true;
 }
+function getSourceClass(item) {
+    const sourceClassIdentifier = getSourceClassIdentifier(item);
+    if (!sourceClassIdentifier) return;
+    return item.actor.classes[sourceClassIdentifier];
+}
 export default {
     getSaveDC,
     getSavedCastData,
@@ -158,5 +163,6 @@ export default {
     unhideActivities,
     rehideActivities,
     getSourceClassIdentifier,
-    getEquipmentState
+    getEquipmentState,
+    getSourceClass
 };

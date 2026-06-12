@@ -1,5 +1,5 @@
 import {summonEvents} from '../events/_module.mjs';
-import {actorUtils, folderUtils, genericUtils, documentUtils, crosshairUtils, animationUtils} from '../utilities/_module.mjs';
+import {actorUtils, folderUtils, genericUtils, documentUtils, crosshairUtils, animationUtils, itemUtils} from '../utilities/_module.mjs';
 import {constants} from './_module.mjs';
 export class SummonsManager {
     #summons = new Map();
@@ -69,7 +69,7 @@ export class SummonsManager {
             this.#creatingOwnerFolders.delete(actor.uuid);
         }
     }
-    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition, sourceDocument, sounds} = {}) {
+    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition, sourceDocument, sounds, items = []} = {}) {
         const actorData = (await summon.getSourceActor()).toObject();
         delete actorData._id;
         delete actorData.sort;
@@ -83,6 +83,10 @@ export class SummonsManager {
         }
         disposition ??= actorUtils.getFirstToken(summon.owner)?.disposition ?? summon.owner.prototypeToken.disposition;
         genericUtils.setProperty(actorData, 'prototypeToken.disposition', disposition);
+        if (items.length) {
+            updates.items ??= [];
+            await Promise.all(items.map(async itemInfo => this.#processItem(summon, updates, itemInfo)));
+        }
         await summonEvents.preCreate(summon, updates);
         genericUtils.mergeObject(actorData, updates);
         genericUtils.setProperty(actorData, 'prototypeToken.actorLink', true);
@@ -99,6 +103,33 @@ export class SummonsManager {
             sounds
         });
         return await actorUtils.createActor(actorData);
+    }
+    async #processItem(summon, updates, itemInfo) {
+        const {uuid, matchDC, matchAttack, description} = itemInfo;
+        const sourceItem = await fromUuid(uuid);
+        if (!sourceItem) return;
+        const itemData = sourceItem.toObject();
+        delete itemData._id;
+        if (description) itemData.system.description = description;
+        const sourceClass = itemUtils.getSourceClass(summon.sourceDocument);
+        if (!sourceClass) {
+            updates.items.push(itemData);
+            return;
+        }
+        const save = sourceClass.system.spellcasting.save;
+        const attack = sourceClass.system.spellcasting.attack;
+        Object.values(itemData.system.activities).forEach(activityData => {
+            if (matchDC && activityData.type === 'save') genericUtils.setProperty(activityData, 'save.dc', {
+                calculation: '',
+                formula: String(save),
+                value: true
+            });
+            if (matchAttack && activityData.type === 'attack') {
+                genericUtils.setProperty(activityData, 'attack.flat', true);
+                genericUtils.setProperty(activityData, 'attack.bonus', String(attack));
+            }
+        });
+        updates.push(itemData);
     }
     async createSummon(ownerActor, sourceActor, created = game.time.worldTime, options = {}) {
         const summon = new Summon(ownerActor, sourceActor, created, options);
