@@ -14,3 +14,4 @@ export {default as SceneMedkit} from './medkit/scene.mjs';
 export {default as SettingsMenuBase} from './settings-menu.mjs';
 export {default as TokenMedkit} from './medkit/token.mjs';
 export * as elements from './elements/_module.mjs';
+export {CatCompendiumBrowser} from './compendiumBrowser.mjs';
