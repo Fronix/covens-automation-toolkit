@@ -4,7 +4,7 @@ export default class SettingsMenu extends MenuApp {
     #menuSettings;
     #save = false;
     constructor(key) {
-        let title = 'CAT.Settings.' + key.titleCase() + '.Name';
+        let title = 'CAT.Settings.' + key.capitalize() + '.Name';
         let inputs = [];
         let buttons = 'okCancel';
         let config = {id: 'cat-settings-menu-' + key};
