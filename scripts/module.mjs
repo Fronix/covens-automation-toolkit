@@ -43,6 +43,7 @@ Hooks.once('ready', () => {
     patches.documentPatching.patch(true);
     patches.actorPatching.patch(true);
     patches.effectPatching.patch(true);
+    patches.compendiumBrowserPatching.patch(true);
     lib.constants.macros.registerFnMacro(test); // Testing
     lib.constants.scales.registerScale({ // More Testing
         source: 'cat',

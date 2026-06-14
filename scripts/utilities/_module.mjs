@@ -18,3 +18,4 @@ export {default as combatUtils} from './combatUtils.mjs';
 export {default as animationUtils} from './animationUtils.mjs';
 export {default as folderUtils} from './folderUtils.mjs';
 export {default as summonUtils} from './summonUtils.mjs';
+export {default as compendiumUtils} from './compendiumUtils.mjs';

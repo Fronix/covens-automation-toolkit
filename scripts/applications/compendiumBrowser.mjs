@@ -2,7 +2,8 @@ const {CompendiumBrowser} = dnd5e.applications;
 export class CatCompendiumBrowser extends CompendiumBrowser {
     static DEFAULT_OPTIONS = {
         allowedPacks: [],
-        arbitraryFilters: []
+        customFilters: [],
+        filterPredicate: null 
     };
     static async select(config = {}, renderOptions = {}) {
         for (const key of Object.keys(config)) {
@@ -24,18 +25,15 @@ export class CatCompendiumBrowser extends CompendiumBrowser {
     }
     async _prepareResultsContext(context, options) {
         context.filters ??= {};
-        context.filters.arbitrary ??= [];
-        if (this.options.allowedPacks?.length) {
+        context.filters.arbitrary = [];
+        if (typeof this.options.filterPredicate === 'function') {
             context.filters.arbitrary.push({
-                o: 'OR',
-                v: this.options.allowedPacks.map(packId => ({
-                    k: 'uuid',
-                    o: 'icontains',
-                    v: packId
-                }))
+                _customPredicate: this.options.filterPredicate
             });
         }
-        if (this.options.arbitraryFilters?.length) context.filters.arbitrary.push(...this.options.arbitraryFilters);
+        if (this.options.customFilters?.length > 0) {
+            context.filters.arbitrary.push(...this.options.customFilters);
+        }
         return super._prepareResultsContext(context, options);
     }
 }

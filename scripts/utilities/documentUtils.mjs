@@ -1,5 +1,4 @@
 import {activityUtils, actorUtils, effectUtils, itemUtils, queryUtils, regionUtils, tokenUtils} from './_module.mjs';
-import {CatCompendiumBrowser} from '../applications/_module.mjs';
 function getRules(document, {documentType = document.documentName} = {}) {
     return documentType === 'Item' ? document.system.source.rules : document.flags.cat?.automation?.rules;
 }
@@ -103,25 +102,6 @@ async function makeDependent(parentDocument, childDocuments = []) {
     if (!childDocuments.length) return;
     await Promise.all(childDocuments.map(async document => MidiQOL.addDependent(parentDocument, document)));
 }
-async function selectFromCompendiumBrowser(tab, {packIds, arbitraryFilters, nativeFilter, selection, title, hint, icon, position} = {}) {
-    const options = {
-        tab,
-        allowedPacks: packIds,
-        arbitraryFilters,
-        selection,
-        filters: nativeFilter,
-        hint,
-        position
-    };
-    if (title || icon) {
-        options.window = {};
-        if (title) options.window.title = title;
-        if (icon) options.window.icon = icon;
-    }
-    const results = await CatCompendiumBrowser.select(options);
-    if (!results?.size) return;
-    return (await Promise.all(results.map(uuid => fromUuid(uuid)))).filter(Boolean);
-}
 export default {
     getRules,
     getSource,
@@ -135,6 +115,5 @@ export default {
     updateEmbeddedDocuments,
     setFlag,
     getEffectByIdentifier,
-    makeDependent,
-    selectFromCompendiumBrowser
+    makeDependent
 };
