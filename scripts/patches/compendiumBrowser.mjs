@@ -1,5 +1,5 @@
 import {Logging} from '../lib/_module.mjs';
-async function fetchWrapper(wrapped, documentClass, options = {}) {
+async function fetch(wrapped, documentClass, options = {}) {
     let customPredicate = null;
     if (Array.isArray(options.filters)) {
         options.filters = options.filters.filter(f => {
@@ -41,7 +41,7 @@ async function fetchWrapper(wrapped, documentClass, options = {}) {
 function patch(enabled) {
     if (enabled) {
         Logging.addEntry('DEBUG', 'Patching: dnd5e.applications.CompendiumBrowser.fetch');
-        libWrapper.register('cat', 'dnd5e.applications.CompendiumBrowser.fetch', fetchWrapper, 'WRAPPER');
+        libWrapper.register('cat', 'dnd5e.applications.CompendiumBrowser.fetch', fetch, 'WRAPPER');
     } else {
         Logging.addEntry('DEBUG', 'Unpatching: dnd5e.applications.CompendiumBrowser.fetch');
         libWrapper.unregister('cat', 'dnd5e.applications.CompendiumBrowser.fetch');

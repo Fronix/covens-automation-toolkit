@@ -10,11 +10,7 @@ export class CatCompendiumBrowser extends CompendiumBrowser {
             if (config[key] === undefined) delete config[key];
         }
         const tabData = dnd5e.applications.CompendiumBrowser.TABS.find(t => t.tab === config.tab);
-        if (tabData && config.mode === undefined) {
-            config.mode = tabData.advanced ? 
-                dnd5e.applications.CompendiumBrowser.MODES.ADVANCED : 
-                dnd5e.applications.CompendiumBrowser.MODES.BASIC;
-        }
+        if (tabData && config.mode === undefined) config.mode = tabData.advanced ?  dnd5e.applications.CompendiumBrowser.MODES.ADVANCED : dnd5e.applications.CompendiumBrowser.MODES.BASIC;
         return new Promise(resolve => {
             const browser = new CatCompendiumBrowser(config);
             browser.addEventListener('close', () => {
