@@ -107,11 +107,19 @@ export class SummonsManager {
         return await actorUtils.createActor(actorData);
     }
     async #processItem(summon, updates, itemInfo) {
-        const {uuid, matchDC, matchAttack, description} = itemInfo;
+        const {uuid, matchDC, matchAttack, description, method, prepared, equipped, attuned} = itemInfo;
         const sourceItem = await fromUuid(uuid);
         if (!sourceItem) return;
         const itemData = sourceItem.toObject();
         delete itemData._id;
+        const canEquipped = Object.hasOwn(itemData.system, 'equipped');
+        if (itemData.type === 'spell') {
+            genericUtils.setProperty(itemData, 'system.method', method ?? 'atwill');
+            genericUtils.setProperty(itemData, 'system.prepared', prepared ?? 1);
+        } else if (canEquipped) {
+            genericUtils.setProperty(itemData, 'system.equipped', equipped ?? true);
+            if (itemData.system.attunement === 'required') genericUtils.setProperty(itemData, 'system.attuned', attuned ?? true);
+        }
         if (description) itemData.system.description.value = description;
         const sourceClass = itemUtils.getSourceClass(summon.sourceDocument);
         if (!sourceClass) {
@@ -174,6 +182,31 @@ export class SummonsManager {
         if (combatantsToCreate.length) await documentUtils.createEmbeddedDocuments(combat, 'Combatant', combatantsToCreate);
         if (combatantsToUpdate.length) await documentUtils.updateEmbeddedDocuments(combat, 'Combatant', combatantsToUpdate);
         if (followsCount > 1) await documentUtils.update(ownerToken.combatant, {initiative: baseInitiative + (followsCount * 0.001)});
+    }
+    async summonInitiative(summon, token) {
+        if (!['follows', 'standard'].includes(summon.initiative)) return;
+        const ownerToken = summon.ownerToken;
+        const combat = ownerToken?.combatant?.combat;
+        if (!combat?.started) return;
+        const combatantData = {
+            tokenId: token.id,
+            sceneId: token.scene.id,
+            actorId: summon.actor.id
+        };
+        if (summon.initiative === 'follows') {
+            const ownerCombatant = ownerToken.combatant;
+            if (ownerCombatant?.initiative !== null) {
+                combatantData.initiative = ownerCombatant.initiative;
+                await documentUtils.update(ownerCombatant, {initiative: ownerCombatant.initiative + 0.001});
+            }
+        } else if (summon.initiative === 'standard') {
+            const roll = await summon.actor.getInitiativeRoll().evaluate();
+            await roll.toMessage({
+                speaker: ChatMessage.implementation.getSpeaker({token: token})
+            });
+            combatantData.initiative = roll.total;
+        }
+        await documentUtils.createEmbeddedDocuments(combat, 'Combatant', [combatantData]);
     }
     async createSummon(ownerActor, sourceActor, created = game.time.worldTime, options = {}) {
         const summon = new Summon(ownerActor, sourceActor, created, options);
@@ -253,7 +286,7 @@ export class SummonsManager {
         const animation = summon.animation ? animationUtils.getAnimation(summon.animation.source, summon.animation.identifier) : undefined;
         if (animation?.macros?.prePlace) await animation.macros.prePlace(summon, location, preToken);
         const token = (await documentUtils.createEmbeddedDocuments(scene, 'Token', [preToken.toObject()], {cat: {summonCreate: true}}))?.[0];
-        await this.ownerInitiative(summon.owner);
+        await this.summonInitiative(summon, token);
         if (animation?.macros?.postPlace) await animation.macros.postPlace(summon, location, token);
         return token;
     }
