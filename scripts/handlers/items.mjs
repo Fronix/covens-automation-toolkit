@@ -56,8 +56,16 @@ async function hashCompendium(compendium, {register = false} = {}) {
     });
     await Promise.all(promises);
 }
-async function registerCompendiums() {
-    const compendiums = automationUtils.getAutomationSources({packsOnly: true}).map(id => game.packs.get(id)).filter(Boolean);
+async function registerCompendiums({startup = false} = {}) {
+    if (!startup) {
+        const validSources = automationUtils.getAutomationSources();
+        for (const source of Array.from(constants.automations.sources)) {
+            if (!validSources.includes(source)) {
+                constants.automations.unregisterAutomationsBySource(source);
+            }
+        }
+    }
+    const compendiums = automationUtils.getAutomationSources({packsOnly: true}).map(id => game.packs.get(id)).filter(pack => pack && (startup || !constants.automations.sources.has(pack.metadata.id)));
     await Promise.all(compendiums.map(async compendium => {
         await hashCompendium(compendium, {register: true});
         constants.automations.registerSourceName(compendium.metadata.id, compendium.metadata.name);

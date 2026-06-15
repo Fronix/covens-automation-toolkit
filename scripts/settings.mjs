@@ -1,6 +1,7 @@
 import {genericUtils} from './utilities/_module.mjs';
 import {SettingsMenuBase} from './applications/_module.mjs';
-import dicePatching from './patches/dice.mjs';
+import {dicePatching} from './patches/_module.mjs';
+import items from './handlers/items.mjs';
 
 /**
  * Settings to register.
@@ -55,7 +56,8 @@ const settings = {
                 priority: 20,
                 pack: false
             }
-        }
+        },
+        onChange: () => items.registerCompendiums()
     },
     additionalCompendiums: {
         type: Object,
@@ -148,6 +150,12 @@ const settings = {
         default: false,
         scope: 'client',
         menu: 'manualRolls'
+    },
+    monsterCompendiums: {
+        type: String,
+        default: '',
+        scope: 'world',
+        menu: 'compendiums'
     }
 };
 const menus = {

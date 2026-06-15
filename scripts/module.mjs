@@ -60,7 +60,7 @@ Hooks.once('ready', async () => {
         await integration.phb.registerScales();
     }
     if (game.modules.get('dnd-dungeon-masters-guide')?.active) await integration.dmg.registerAutomations();
-    await handlers.items.registerCompendiums();
+    await handlers.items.registerCompendiums({startup: true});
     catGate();
     Hooks.callAll('catReady');
 });

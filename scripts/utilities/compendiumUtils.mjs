@@ -18,6 +18,15 @@ async function selectFromCompendiumBrowser(tab, {packIds, filterPredicate, filte
     if (!results?.size) return;
     return (await Promise.all(Array.from(results).map(uuid => fromUuid(uuid)))).filter(Boolean);
 }
+async function getDocumentByIdentifier(packId, identifier) {
+    const pack = game.packs.get(packId);
+    if (!pack) return;
+    const index = await pack.getIndex({fields: ['system.identifier', 'flags.cat.automation.identifier']});
+    const found = index.find(i => i.system.identifier === identifier || i.flags.cat?.automation?.identifier === identifier);
+    if (!found) return;
+    return await fromUuid(found.uuid);
+}
 export default {
-    selectFromCompendiumBrowser
+    selectFromCompendiumBrowser,
+    getDocumentByIdentifier
 };

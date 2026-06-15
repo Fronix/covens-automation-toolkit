@@ -59,20 +59,21 @@ export default class MenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const data = genericUtils.expandObject(formData.object);
         form.querySelectorAll('.cat-settings-priority').forEach(widget => {
             const sourceSetting = widget.dataset.sourceSetting;
-            const packSetting = widget.dataset.packSetting;
             if (!sourceSetting) return;
             const sources = {};
-            const packs = {};
             widget.querySelectorAll('.cat-priority-list').forEach(list => {
                 const enabled = list.dataset.list === 'enabled';
                 list.querySelectorAll('.cat-priority-row').forEach(row => {
                     const priority = Number(row.querySelector('.cat-priority-rank').value);
-                    if (row.dataset.kind === 'source') sources[row.dataset.sourceId] = {enabled, priority, pack: false};
-                    else if (enabled) packs[row.dataset.sourceId] = priority;
+                    const id = row.dataset.sourceId;
+                    sources[id] = {
+                        enabled: enabled, 
+                        priority: priority, 
+                        pack: id.includes('.')
+                    };
                 });
             });
             data[sourceSetting] = sources;
-            if (packSetting) data[packSetting] = packs;
         });
         this.data = data;
         this.submit(event.submitter?.name);
@@ -140,7 +141,6 @@ export default class MenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     #buildPriority(input) {
         const sources = input.value ?? {};
-        const compendiums = game.settings.get('cat', 'additionalCompendiums') ?? {};
         const registered = new Set(constants.automations?.sources ?? []);
         const owned = new Set(ddbi.getCompendiumIds());
         const sourceTag = _loc('CAT.Settings.AutomationSources.SourceTag');
@@ -149,21 +149,33 @@ export default class MenuApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const sourceIds = new Set([...Object.keys(sources), ...registered]);
         for (const id of sourceIds) {
             const cfg = sources[id] ?? {};
-            rows.push({id, kind: 'source', kindLabel: sourceTag, name: this.#sourceName(id), enabled: cfg.enabled ?? true, priority: cfg.priority ?? 50});
-        }
-        for (const [id, priority] of Object.entries(compendiums)) {
-            rows.push({id, kind: 'pack', kindLabel: packTag, name: game.packs.get(id)?.metadata.label ?? id, enabled: true, priority});
+            const isPack = id.includes('.');
+            if (isPack && !game.packs.has(id)) continue;
+            rows.push({
+                id, 
+                kind: isPack ? 'pack' : 'source', 
+                kindLabel: isPack ? packTag : sourceTag, 
+                name: isPack ? game.packs.get(id).metadata.label : this.#sourceName(id), 
+                enabled: cfg.enabled ?? true, 
+                priority: cfg.priority ?? 50
+            });
         }
         for (const pack of game.packs) {
             const id = pack.metadata.id;
-            if (pack.metadata.type !== 'Item' || registered.has(pack.metadata.packageName) || owned.has(id) || sourceIds.has(id) || id in compendiums) continue;
-            rows.push({id, kind: 'pack', kindLabel: packTag, name: pack.metadata.label, enabled: false, priority: 50});
+            if (pack.metadata.type !== 'Item' || registered.has(pack.metadata.packageName) || owned.has(id) || sourceIds.has(id)) continue;
+            rows.push({
+                id, 
+                kind: 'pack', 
+                kindLabel: packTag, 
+                name: pack.metadata.label, 
+                enabled: false, 
+                priority: 50
+            });
         }
         rows.sort((a, b) => a.priority - b.priority);
         return {
             isPriority: true,
             name: input.name,
-            packSetting: 'additionalCompendiums',
             hint: _loc(input.hint),
             enabledRows: rows.filter(r => r.enabled),
             disabledRows: rows.filter(r => !r.enabled)
