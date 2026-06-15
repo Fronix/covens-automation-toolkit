@@ -183,7 +183,7 @@ export class SummonsManager {
         if (combatantsToUpdate.length) await documentUtils.updateEmbeddedDocuments(combat, 'Combatant', combatantsToUpdate);
         if (followsCount > 1) await documentUtils.update(ownerToken.combatant, {initiative: baseInitiative + (followsCount * 0.001)});
     }
-    async summonInitiative(summon, token) {
+    async #summonInitiative(summon, token) {
         if (!['follows', 'standard'].includes(summon.initiative)) return;
         const ownerToken = summon.ownerToken;
         const combat = ownerToken?.combatant?.combat;
@@ -286,7 +286,7 @@ export class SummonsManager {
         const animation = summon.animation ? animationUtils.getAnimation(summon.animation.source, summon.animation.identifier) : undefined;
         if (animation?.macros?.prePlace) await animation.macros.prePlace(summon, location, preToken);
         const token = (await documentUtils.createEmbeddedDocuments(scene, 'Token', [preToken.toObject()], {cat: {summonCreate: true}}))?.[0];
-        await this.summonInitiative(summon, token);
+        await this.#summonInitiative(summon, token);
         if (animation?.macros?.postPlace) await animation.macros.postPlace(summon, location, token);
         return token;
     }
