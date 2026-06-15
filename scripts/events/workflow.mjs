@@ -1,18 +1,7 @@
 import {constants, Events} from '../lib/_module.mjs';
-import {regionVisibility} from '../mechanics/regionVisibility.mjs';
-import specialDuration from '../mechanics/specialDuration.mjs';
+import {regionVisibility, specialDuration} from '../mechanics/_module.mjs';
 import {diceSoNice} from '../integration/_modules.mjs';
-import CatRollResolver from '../applications/dice/roll-resolver.mjs';
-async function manualDamageRolls(workflow) {
-    if (!game.settings.get('cat', 'manualRollsEnabled') || !workflow.damageRolls?.length) return;
-    if (!workflow.hitTargets?.size && !game.settings.get('cat', 'manualRollsPromptOnMiss')) return;
-    if (!CatRollResolver.shouldForce(workflow.actor)) return;
-    const newRolls = workflow.damageRolls.map(roll => new CONFIG.Dice.DamageRoll(roll.formula, roll.data, roll.options));
-    const label = workflow.item?.name ? `${workflow.item.name} — ${workflow.activity?.name ?? ''}`.trim() : undefined;
-    await CatRollResolver.fulfillBatch(newRolls, label, {prompt: true});
-    for (const roll of newRolls) await roll.evaluate({allowInteractive: false});
-    await workflow.setDamageRolls(newRolls);
-}
+import {manualRolls} from '../handlers/_module.mjs';
 async function preTargeting({activity, token, config, dialog, message}) {
     let event = await new Events.PreTargetingWorkflowEvent(constants.workflowPasses.preTargeting, {activity, token, config, dialog, message}).run();
     if (event) return false;
@@ -47,7 +36,7 @@ async function damageRollComplete(workflow) {
     await new Events.WorkflowEvent(constants.workflowPasses.damageRoll, workflow).run();
     await new Events.WorkflowEvent(constants.workflowPasses.damageRollBonuses, workflow).run();
     await new Events.WorkflowEvent(constants.workflowPasses.damageRollComplete, workflow).run();
-    await manualDamageRolls(workflow);
+    await manualRolls.manualDamageRolls(workflow);
     if (game.settings.get('cat', 'diceSoNice') && game.modules.get('dice-so-nice')?.active) await diceSoNice.damageRollComplete(workflow);
 }
 async function utilityRollComplete(workflow) {
