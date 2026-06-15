@@ -422,17 +422,53 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const items = Array.isArray(entry.items) ? entry.items : [];
         return {
             base: configPath,
-            entries: items.map((item, j) => ({
-                index: j,
-                legend: item.itemName ?? (item.uuid ? fromUuidSync(item.uuid)?.name : null) ?? `${_loc('CAT.MEDKIT.Summons.Item')} ${j + 1}`,
-                fields: [
+            entries: items.map((item, j) => {
+                const doc = item.uuid ? fromUuidSync(item.uuid) : null;
+                const itemType = item.itemType ?? doc?.type;
+                const model = itemType ? CONFIG.Item.dataModels[itemType] : null;
+                const hasField = key => !!model?.schema?.fields?.[key];
+                const canEquip = hasField('equipped');
+                const canAttune = canEquip && (item.canAttune ?? (doc ? !!doc.system?.attunement : hasField('attunement')));
+                const fields = [
                     {key: `${base}-uuid-${j}`, name: `${base}.${j}.uuid`, label: _loc('CAT.MEDKIT.Summons.Item'), value: item.uuid ?? '', isCombobox: true, allowBlank: true, choices: this.#itemChoices(item), compendiumItemPicker: true},
                     this.#buildOption({key: `${base}-dc-${j}`, type: 'checkbox', label: 'CAT.MEDKIT.Summons.MatchDC'}, {name: `${base}.${j}.matchDC`, value: item.matchDC ?? false}),
-                    this.#buildOption({key: `${base}-attack-${j}`, type: 'checkbox', label: 'CAT.MEDKIT.Summons.MatchAttack'}, {name: `${base}.${j}.matchAttack`, value: item.matchAttack ?? false}),
-                    this.#buildOption({key: `${base}-desc-${j}`, type: 'text', label: 'CAT.MEDKIT.Summons.Description'}, {name: `${base}.${j}.description`, value: item.description ?? ''})
-                ]
-            }))
+                    this.#buildOption({key: `${base}-attack-${j}`, type: 'checkbox', label: 'CAT.MEDKIT.Summons.MatchAttack'}, {name: `${base}.${j}.matchAttack`, value: item.matchAttack ?? false})
+                ];
+                if (itemType === 'spell') {
+                    fields.push(
+                        {key: `${base}-method-${j}`, name: `${base}.${j}.method`, label: _loc('CAT.MEDKIT.Summons.Method'), value: item.method ?? '', isCombobox: true, allowBlank: true, choices: this.#spellMethodChoices()},
+                        this.#buildOption({key: `${base}-prepared-${j}`, type: 'select', label: 'CAT.MEDKIT.Summons.Prepared', options: this.#spellPreparedChoices()}, {name: `${base}.${j}.prepared`, value: String(item.prepared ?? 0)})
+                    );
+                }
+                if (canEquip) {
+                    fields.push(this.#buildOption({key: `${base}-equip-${j}`, type: 'checkbox', label: 'CAT.MEDKIT.Summons.Equip'}, {name: `${base}.${j}.equipped`, value: item.equipped ?? true}));
+                    if (canAttune) fields.push(this.#buildOption({key: `${base}-attune-${j}`, type: 'checkbox', label: 'CAT.MEDKIT.Summons.Attune'}, {name: `${base}.${j}.attuned`, value: item.attuned ?? false}));
+                }
+                fields.push(
+                    this.#buildOption({key: `${base}-uses-${j}`, type: 'text', label: 'CAT.MEDKIT.Summons.UsesMax'}, {name: `${base}.${j}.usesMax`, value: item.usesMax ?? ''}),
+                    {key: `${base}-recovery-${j}`, name: `${base}.${j}.usesRecovery`, label: _loc('CAT.MEDKIT.Summons.UsesRecovery'), value: item.usesRecovery ?? '', isCombobox: true, allowBlank: true, choices: this.#usesRecoveryChoices()}
+                );
+                if (item.usesRecovery === 'recharge') fields.push(this.#buildOption({key: `${base}-recharge-${j}`, type: 'text', label: 'CAT.MEDKIT.Summons.RechargeValue'}, {name: `${base}.${j}.usesRechargeFormula`, value: item.usesRechargeFormula ?? '6'}));
+                fields.push(this.#buildOption({key: `${base}-desc-${j}`, type: 'text', label: 'CAT.MEDKIT.Summons.Description'}, {name: `${base}.${j}.description`, value: item.description ?? ''}));
+                return {
+                    index: j,
+                    legend: item.itemName ?? doc?.name ?? `${_loc('CAT.MEDKIT.Summons.Item')} ${j + 1}`,
+                    fields
+                };
+            })
         };
+    }
+
+    #spellMethodChoices() {
+        return Object.entries(CONFIG.DND5E.spellcasting).map(([value, c]) => ({value, label: _loc(c.label)}));
+    }
+
+    #spellPreparedChoices() {
+        return Object.values(CONFIG.DND5E.spellPreparationStates).map(s => ({value: String(s.value), label: _loc(s.label)}));
+    }
+
+    #usesRecoveryChoices() {
+        return CONFIG.DND5E.limitedUsePeriods.recoveryOptions.map(o => ({value: o.value, label: _loc(o.label)}));
     }
 
     // Compendium items come from the browser button, not this list — packs can hold thousands.
@@ -822,7 +858,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const uuids = [...result];
         for (let j = 0; j < uuids.length; j++) {
             const doc = await fromUuid(uuids[j]);
-            list[startIndex + j] = {...(list[startIndex + j] ?? {}), uuid: uuids[j], itemName: doc?.name ?? uuids[j], itemImg: doc?.img};
+            list[startIndex + j] = {...(list[startIndex + j] ?? {}), uuid: uuids[j], itemName: doc?.name ?? uuids[j], itemImg: doc?.img, itemType: doc?.type, canAttune: !!doc?.system?.attunement};
         }
         foundry.utils.setProperty(flags, listPath, list);
         this.render();
@@ -987,6 +1023,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             foundry.utils.setProperty(this.#flags, path, animSource ? {source: animSource, identifier: animIdentifier} : '');
         } else if (name.startsWith('flags.cat.')) {
             foundry.utils.setProperty(this.#flags, name.slice('flags.cat.'.length), value);
+            if (singleCombobox) { this.render(); return; }
             return;
         } else {
             return;

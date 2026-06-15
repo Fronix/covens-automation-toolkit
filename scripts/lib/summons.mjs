@@ -107,20 +107,23 @@ export class SummonsManager {
         return await actorUtils.createActor(actorData);
     }
     async #processItem(summon, updates, itemInfo) {
-        const {uuid, matchDC, matchAttack, description, method, prepared, equipped, attuned} = itemInfo;
+        const {uuid, matchDC, matchAttack, description, equipped, attuned, method, prepared, usesMax, usesRecovery, usesRechargeFormula} = itemInfo;
         const sourceItem = await fromUuid(uuid);
         if (!sourceItem) return;
         const itemData = sourceItem.toObject();
         delete itemData._id;
-        const canEquipped = Object.hasOwn(itemData.system, 'equipped');
-        if (itemData.type === 'spell') {
-            genericUtils.setProperty(itemData, 'system.method', method ?? 'atwill');
-            genericUtils.setProperty(itemData, 'system.prepared', prepared ?? 1);
-        } else if (canEquipped) {
-            genericUtils.setProperty(itemData, 'system.equipped', equipped ?? true);
-            if (itemData.system.attunement === 'required') genericUtils.setProperty(itemData, 'system.attuned', attuned ?? true);
-        }
         if (description) itemData.system.description.value = description;
+        if (Object.hasOwn(itemData.system, 'equipped') && equipped !== false) genericUtils.setProperty(itemData, 'system.equipped', true);
+        if (attuned && itemData.system.attunement) genericUtils.setProperty(itemData, 'system.attuned', true);
+        if (itemData.type === 'spell') {
+            if (method) genericUtils.setProperty(itemData, 'system.method', method);
+            genericUtils.setProperty(itemData, 'system.prepared', Number(prepared ?? 0));
+        }
+        if (usesMax) {
+            genericUtils.setProperty(itemData, 'system.uses.max', String(usesMax));
+            genericUtils.setProperty(itemData, 'system.uses.spent', 0);
+            if (usesRecovery) genericUtils.setProperty(itemData, 'system.uses.recovery', [{period: usesRecovery, type: 'recoverAll', formula: usesRecovery === 'recharge' ? (usesRechargeFormula || '6') : ''}]);
+        }
         const sourceClass = itemUtils.getSourceClass(summon.sourceDocument);
         if (!sourceClass) {
             updates.items.push(itemData);

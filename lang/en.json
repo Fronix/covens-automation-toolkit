@@ -251,6 +251,13 @@
         "Item": "Item",
         "MatchDC": "Match Save DC",
         "MatchAttack": "Match Attack Bonus",
+        "Equip": "Equip",
+        "Attune": "Attune",
+        "Method": "Spell Method",
+        "Prepared": "Preparation",
+        "UsesMax": "Max Uses",
+        "UsesRecovery": "Uses Recovery",
+        "RechargeValue": "Recharge Value",
         "Description": "Description Override",
         "ItemCompendiumPick": "Select item from compendium",
         "AddItem": "Add item"
