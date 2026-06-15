@@ -1,7 +1,8 @@
 import {documentUtils} from '../utilities/_module.mjs';
-import {constants} from '../lib/_module.mjs';
+import {constants, Logging} from '../lib/_module.mjs';
 async function registerAutomations() {
     constants.automations.registerSourceName(game.system.id, game.system.title);
+    Logging.group('D&D 5e Automations');
     const packs = [
         'items',
         'tradegoods',
@@ -22,8 +23,10 @@ async function registerAutomations() {
         if (!pack) return;
         await constants.automations.registerAutomationCompendium(pack);
     }));
+    Logging.groupEnd();
 }
 async function registerScales() {
+    Logging.group('D&D 5e Scales');
     const packs = [
         'classes',
         'subclasses',
@@ -47,6 +50,7 @@ async function registerScales() {
             });
         });
     }));
+    Logging.groupEnd();
 }
 export default {
     registerAutomations,

@@ -5,3 +5,4 @@ export {default as effectPatching} from './effect.mjs';
 export {default as dataModelPatching} from './dataModel.mjs';
 export {default as itemPatching} from './item.mjs';
 export {default as compendiumBrowserPatching} from './compendiumBrowser.mjs';
+export {default as combatPatching} from './combat.mjs';

@@ -29,8 +29,9 @@ export class SummonsManager {
             const sourceDocument = summonData.sourceDocument ? await fromUuid(summonData.sourceDocument) : undefined;;
             const parent = summonData.parent ? await fromUuid(summonData.parent) : undefined;
             const sounds = summonData.sounds;
+            const initiative = summonData.initiative;
             if (!owner || !sourceActor || created === undefined) return;
-            return new Summon(owner, sourceActor, created, {actor, duration, animation, parent, sourceDocument, sounds});
+            return new Summon(owner, sourceActor, created, {actor, duration, animation, parent, sourceDocument, sounds, initiative});
         }))).filter(Boolean);
         resolvedSummons.forEach(summon => this.#summons.set(summon.actor.id, summon));
     }
@@ -69,7 +70,7 @@ export class SummonsManager {
             this.#creatingOwnerFolders.delete(actor.uuid);
         }
     }
-    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition, sourceDocument, sounds, items = []} = {}) {
+    async #prepareSidebarActor(summon, created = game.time.worldTime, {avatarImg, tokenImg, name, updates, animation, disposition, sourceDocument, sounds, items = [], initiative} = {}) {
         const actorData = (await summon.getSourceActor()).toObject();
         delete actorData._id;
         delete actorData.sort;
@@ -81,7 +82,7 @@ export class SummonsManager {
             actorData.name = name;
             genericUtils.setProperty(actorData, 'prototypeToken.name', name);
         }
-        disposition ??= actorUtils.getFirstToken(summon.owner)?.disposition ?? summon.owner.prototypeToken.disposition;
+        disposition ??= summon.ownerToken?.disposition ?? summon.owner.prototypeToken.disposition;
         genericUtils.setProperty(actorData, 'prototypeToken.disposition', disposition);
         if (items.length) {
             updates.items ??= [];
@@ -100,7 +101,8 @@ export class SummonsManager {
             animation,
             parent: summon.parent?.uuid,
             sourceDocument: sourceDocument?.uuid,
-            sounds
+            sounds,
+            initiative
         });
         return await actorUtils.createActor(actorData);
     }
@@ -130,6 +132,48 @@ export class SummonsManager {
             }
         });
         updates.items.push(itemData);
+    }
+    async ownerInitiative(actor) {
+        const summons = this.getSummons(actor).filter(summon => ['follows', 'standard'].includes(summon.initiative) && summon.token);
+        if (!summons.length) return;
+        const ownerToken = actorUtils.getFirstToken(actor);
+        if (!ownerToken?.combatant) return;
+        const combat = ownerToken.combatant?.combat;
+        if (!combat) return;
+        const combatantsToCreate = [];
+        const combatantsToUpdate = [];
+        let followsCount = 1;
+        const baseInitiative = ownerToken.combatant.initiative || 0;
+        for (const summon of summons) {
+            let calculatedInitiative;
+            if (summon.initiative === 'follows') {
+                calculatedInitiative = baseInitiative + (followsCount * 0.001);
+                followsCount++;
+            } else if (summon.initiative === 'standard') {
+                const roll = await summon.actor.getInitiativeRoll().evaluate();
+                await roll.toMessage({
+                    speaker: ChatMessage.implementation.getSpeaker({token: summon.token})
+                });
+                calculatedInitiative = roll.total;
+            }
+            const existingCombatant = combat.combatants.find(c => c.tokenId === summon.token?.id);
+            if (existingCombatant) {
+                combatantsToUpdate.push({
+                    _id: existingCombatant.id,
+                    initiative: calculatedInitiative
+                });
+            } else {
+                combatantsToCreate.push({
+                    tokenId: summon.token.id,
+                    sceneId: summon.token.scene.id,
+                    actorId: summon.actor.id,
+                    initiative: calculatedInitiative
+                });
+            }
+        }
+        if (combatantsToCreate.length) await documentUtils.createEmbeddedDocuments(combat, 'Combatant', combatantsToCreate);
+        if (combatantsToUpdate.length) await documentUtils.updateEmbeddedDocuments(combat, 'Combatant', combatantsToUpdate);
+        if (followsCount > 1) await documentUtils.update(ownerToken.combatant, {initiative: baseInitiative + (followsCount * 0.001)});
     }
     async createSummon(ownerActor, sourceActor, created = game.time.worldTime, options = {}) {
         const summon = new Summon(ownerActor, sourceActor, created, options);
@@ -182,7 +226,7 @@ export class SummonsManager {
         await Promise.all(expiredSummons.map(summon => this.deleteSummon(summon)));
     }
     async placeSummon(summon, range, {token} = {}) {
-        token ??= actorUtils.getFirstToken(summon.owner);
+        token ??= summon.ownerToken;
         if (!token) return;
         if (summon.token) return;
         const summonImg = summon.actor.prototypeToken.texture.src;
@@ -204,11 +248,12 @@ export class SummonsManager {
         const preToken = await summon.actor.getTokenDocument({
             x: location.x,
             y: location.y,
-            elevation: elevation ?? actorUtils.getFirstToken(summon.owner)?.elevation 
+            elevation: elevation ?? summon.ownerToken?.elevation 
         });
         const animation = summon.animation ? animationUtils.getAnimation(summon.animation.source, summon.animation.identifier) : undefined;
         if (animation?.macros?.prePlace) await animation.macros.prePlace(summon, location, preToken);
         const token = (await documentUtils.createEmbeddedDocuments(scene, 'Token', [preToken.toObject()], {cat: {summonCreate: true}}))?.[0];
+        await this.ownerInitiative(summon.owner);
         if (animation?.macros?.postPlace) await animation.macros.postPlace(summon, location, token);
         return token;
     }
@@ -243,7 +288,7 @@ export class SummonsManager {
     }
 }
 export class Summon {
-    constructor(owner, sourceActor, created, {actor, duration, animation, parent, sourceDocument, sounds} = {}) {
+    constructor(owner, sourceActor, created, {actor, duration, animation, parent, sourceDocument, sounds, initiative} = {}) {
         this.sourceActorUuid = sourceActor.uuid;
         this.ownerUuid = owner.uuid;
         this.actor = actor;
@@ -254,6 +299,7 @@ export class Summon {
         this.parentUuid = parent?.uuid;
         this.sourceDocumentUuid = sourceDocument?.uuid;
         this.sounds = sounds ?? {};
+        this.initiative = initiative;
     }
     get token() {
         return actorUtils.getFirstToken(this.actor);
@@ -270,6 +316,9 @@ export class Summon {
     get parent() {
         if (!this.parentUuid) return undefined;
         return fromUuidSync(this.parentUuid);
+    }
+    get ownerToken() {
+        return actorUtils.getFirstToken(this.owner);
     }
     async getSourceActor() {
         return await fromUuid(this.sourceActorUuid);

@@ -58,10 +58,10 @@ async function hashCompendium(compendium, {register = false} = {}) {
 }
 async function registerCompendiums() {
     const compendiums = automationUtils.getAutomationSources({packsOnly: true}).map(id => game.packs.get(id)).filter(Boolean);
-    compendiums.forEach(compendium => {
-        hashCompendium(compendium, {register: true});
+    await Promise.all(compendiums.map(async compendium => {
+        await hashCompendium(compendium, {register: true});
         constants.automations.registerSourceName(compendium.metadata.id, compendium.metadata.name);
-    });
+    }));
 }
 export default {
     updateHash,

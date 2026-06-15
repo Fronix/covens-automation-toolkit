@@ -3,6 +3,7 @@ import {Logging} from '../lib/_module.mjs';
 async function registerAutomations() {
     const moduleId = 'midi-qol';
     constants.automations.registerSourceName(moduleId, game.modules.get(moduleId).title);
+    Logging.group('Midi-QoL Automations');
     const packs = [
         'midiqol-sample-items'
     ];
@@ -24,6 +25,7 @@ async function registerAutomations() {
             });
         });
     }));
+    Logging.groupEnd();
 }
 export default {
     registerAutomations

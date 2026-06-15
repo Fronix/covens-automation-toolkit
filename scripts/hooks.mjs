@@ -1,7 +1,7 @@
 import {constants} from './lib/_module.mjs';
 import * as events from './events/_module.mjs';
 import {queryUtils} from './utilities/_module.mjs';
-import {titlebar, activities, effects} from './handlers/_module.mjs';
+import {titlebar, activities, effects, combat} from './handlers/_module.mjs';
 import {dae, vae, tidy5e} from './integration/_modules.mjs';
 export function readyHooks() {
     // Handlers
@@ -19,6 +19,8 @@ export function readyHooks() {
     Hooks.on(constants.sheetHookNames.getHeaderControlsRegionConfig, titlebar.appendHeaderControl);
     Hooks.on(constants.sheetHookNames.getHeaderControlsSceneConfig, titlebar.appendHeaderControl);
     Hooks.on(constants.sheetHookNames.getHeaderControlsTokenConfig, titlebar.appendHeaderControl);
+    // Combat Rendering
+    Hooks.on(constants.miscHookNames.renderCombatTracker, combat.renderCombatTracker);
     // Workflow Events
     Hooks.on(constants.workflowHookNames.preTargeting, events.workflowEvents.preTargeting);
     Hooks.on(constants.workflowHookNames.preItemRoll, events.workflowEvents.preItemRoll);
@@ -53,13 +55,17 @@ export function readyHooks() {
     Hooks.on(constants.movementHookNames.moveToken, events.movementEvents.moveToken);
     // Token Events
     Hooks.on(constants.tokenHookNames.preDeleteToken, events.tokenEvents.preDeleteToken);
+    Hooks.on(constants.tokenHookNames.preCreateToken, events.tokenEvents.preCreateToken);
     // Actor Events
     Hooks.on(constants.actorHookNames.preDeleteActor, events.actorEvents.preDeleteActor);
+    // Combat Events
+    Hooks.on(constants.combatHookNames.preUpdateCombatant, events.combatEvents.preUpdateCombatant);
     if (queryUtils.isTheGM()) {
         // Combat Events
         Hooks.on(constants.combatHookNames.updateCombat, events.combatEvents.updateCombat);
         Hooks.on(constants.combatHookNames.combatStart, events.combatEvents.combatStart);
         Hooks.on(constants.combatHookNames.deleteCombat, events.combatEvents.deleteCombat);
+        Hooks.on(constants.combatHookNames.updateCombatant, events.combatEvents.updateCombatant);
         // Aura Events
         Hooks.on(constants.auraHookNames.createToken, events.auraEvents.createToken);
         Hooks.on(constants.auraHookNames.deleteToken, events.auraEvents.deleteToken);

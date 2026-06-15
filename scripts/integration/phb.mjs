@@ -1,8 +1,9 @@
-import {default as constants} from '../lib/constants.mjs';
+import {constants, Logging} from '../lib/_module.mjs';
 import documentUtils from '../utilities/documentUtils.mjs';
 async function registerAutomations() {
     const moduleId = 'dnd-players-handbook';
     constants.automations.registerSourceName(moduleId, game.modules.get(moduleId).title);
+    Logging.group('D&D Players Handbook Automations');
     const packs = [
         'classes',
         'origins',
@@ -15,9 +16,11 @@ async function registerAutomations() {
         if (!pack) return;
         await constants.automations.registerAutomationCompendium(pack);
     }));
+    Logging.groupEnd();
 }
 async function registerScales() {
     const moduleId = 'dnd-players-handbook';
+    Logging.group('D&D Players Handbook Scales');
     const packs = [
         'classes'
     ];
@@ -39,6 +42,7 @@ async function registerScales() {
             });
         });
     }));
+    Logging.groupEnd();
 }
 export default {
     registerAutomations,

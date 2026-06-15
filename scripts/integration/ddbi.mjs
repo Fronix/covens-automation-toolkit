@@ -1,6 +1,5 @@
-import {constants} from '../lib/_module.mjs';
+import {constants, Logging} from '../lib/_module.mjs';
 import {documentUtils} from '../utilities/_module.mjs';
-import {Logging} from '../lib/_module.mjs';
 const COMPENDIUM_SETTINGS = [
     'entity-background-compendium',
     'entity-class-compendium',
@@ -16,6 +15,7 @@ function getCompendiumIds() {
 async function registerAutomations() {
     const moduleId = 'ddb-importer';
     constants.automations.registerSourceName(moduleId, game.modules.get(moduleId).title);
+    Logging.group('D&D Beyond Importer Automations');
     const packs = getCompendiumIds();
     await Promise.all(packs.map(async id => {
         const pack = game.packs.get(id);
@@ -35,6 +35,7 @@ async function registerAutomations() {
             });
         });
     }));
+    Logging.groupEnd();
 }
 async function registerScales() {
     const moduleId = 'ddb-importer';
@@ -42,6 +43,7 @@ async function registerScales() {
         'entity-class-compendium'
     ];
     const packs = settings.map(setting => game.settings.get(moduleId, setting));
+    Logging.group('D&D Beyond Importer Scales');
     await Promise.all(packs.map(async id => {
         const pack = game.packs.get(id);
         if (!pack) return;
@@ -60,6 +62,7 @@ async function registerScales() {
             });
         });
     }));
+    Logging.groupEnd();
 }
 export default {
     registerAutomations,

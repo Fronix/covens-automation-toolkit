@@ -78,7 +78,9 @@ const combatPasses = {
 const combatHookNames = {
     updateCombat: 'updateCombat',
     combatStart: 'combatStart',
-    deleteCombat: 'deleteCombat'
+    deleteCombat: 'deleteCombat',
+    preUpdateCombatant: 'preUpdateCombatant',
+    updateCombatant: 'updateCombatant'
 };
 const auraPasses = {
     update: 'update'
@@ -170,7 +172,8 @@ const summonPasses = {
     removed: 'removed'
 };
 const tokenHookNames = {
-    preDeleteToken: 'preDeleteToken'
+    preDeleteToken: 'preDeleteToken',
+    preCreateToken: 'preCreateToken'
 };
 const miscHookNames = {
     itemUseActivitySelect: 'midi-qol.itemUseActivitySelect',
@@ -181,7 +184,8 @@ const miscHookNames = {
     tidyReady: 'tidy5e-sheet.ready',
     renderTidy5eItemSheetClassic: 'renderTidy5eItemSheetClassic',
     renderTidy5eItemSheetQuadrone: 'renderTidy5eItemSheetQuadrone',
-    renderTidy5eCharacterSheetQuadrone: 'renderTidy5eCharacterSheetQuadrone'
+    renderTidy5eCharacterSheetQuadrone: 'renderTidy5eCharacterSheetQuadrone',
+    renderCombatTracker: 'renderCombatTracker'
 };
 const MEDKIT_STATUSES = {
     UNKNOWN: 'unknown',

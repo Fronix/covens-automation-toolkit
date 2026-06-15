@@ -49,7 +49,8 @@ export default defineConfig([
                 dnd5e: 'writable',
                 Roll: 'writable',
                 ActiveEffect: 'writable',
-                Folder: 'writable'
+                Folder: 'writable',
+                ChatMessage: 'writable'
             },
             ecmaVersion: 'latest',
             sourceType: 'module'

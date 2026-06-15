@@ -1,5 +1,5 @@
 import {constants, Events} from '../lib/_module.mjs';
-import {queryUtils} from '../utilities/_module.mjs';
+import {genericUtils, queryUtils} from '../utilities/_module.mjs';
 import {regions} from '../handlers/_module.mjs';
 async function updateCombat(combat, updates, context) {
     if (!queryUtils.isTheGM()) return;
@@ -44,8 +44,20 @@ async function deleteCombat(combat, updates, context) {
         await new Events.CombatEvent(combat, constants.combatPasses.combatEnd, combatant.token, {context, combatant, round: currentRound, turn: currentTurn, previousCombatant, previousRound, previousTurn}).run();
     }
 }
+function preUpdateCombatant(combatant, updates, context, userId) {
+    if (('initiative' in updates) && combatant.initiative === null) genericUtils.setProperty(context, 'cat.isFirstInitiativeRoll', true);
+}
+async function updateCombatant(combatant, updates, context, userId) {
+    if (!queryUtils.isTheGM()) return;
+    if (!context.cat?.isFirstInitiativeRoll) return;
+    if (!('initiative' in updates)) return;
+    if (!combatant.actor) return;
+    await constants.summons.ownerInitiative(combatant.actor);
+}
 export default {
     updateCombat,
     combatStart,
-    deleteCombat
+    deleteCombat,
+    preUpdateCombatant,
+    updateCombatant
 };

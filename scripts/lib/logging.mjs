@@ -27,6 +27,14 @@ function addAutomationError(data, message) {
     automationsErrors.push([JSON.stringify(data), message]);
     console.error(data, message);
 }
+function group(label = 'Group', {force = false} = {}) {
+    if (force || game.settings.get('cat', 'displayDebugLogs')) {
+        console.groupCollapsed('%cCAT%c | ' + label, 'color: orange; font-weight: bold;', 'color: inherit;');
+    }
+}
+function groupEnd({force = false} = {}) {
+    if (force || game.settings.get('cat', 'displayDebugLogs')) console.groupEnd();
+}
 export default {
     logs,
     macroErrors,
@@ -36,5 +44,7 @@ export default {
     addMacroError,
     addUserError,
     addRegistrationError,
-    addAutomationError
+    addAutomationError,
+    group,
+    groupEnd
 };

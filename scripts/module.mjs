@@ -36,7 +36,11 @@ Hooks.once('libWrapper.Ready', () => {
     patches.dataModelPatching.patch(true);
     patches.itemPatching.patch(true);
 });
-Hooks.once('ready', () => {
+let catGate;
+const catInitGate = new Promise(resolve => {
+    catGate = resolve;
+});
+Hooks.once('ready', async () => {
     lib.constants.summons = lib.SummonsManager.create();
     readyHooks();
     integration.dae.injectFlags();
@@ -44,48 +48,22 @@ Hooks.once('ready', () => {
     patches.actorPatching.patch(true);
     patches.effectPatching.patch(true);
     patches.compendiumBrowserPatching.patch(true);
-    lib.constants.macros.registerFnMacro(test); // Testing
-    lib.constants.scales.registerScale({ // More Testing
-        source: 'cat',
-        rules: 'all',
-        identifier: 'test',
-        data: {
-            type: 'ScaleValue',
-            configuration: {
-                distance: {
-                    units: ''
-                },
-                identifier: 'rage-damage',
-                type: 'number',
-                scale: {
-                    1: {
-                        value: 2
-                    },
-                    9: {
-                        value: 3
-                    },
-                    16: {
-                        value: 4
-                    }
-                }
-            },
-            value: {},
-            title: 'Rage Damage',
-            icon: null
-        }
-    });
-    integration.dnd5e.registerAutomations();
-    integration.dnd5e.registerScales();
-    integration.midiQol.registerAutomations();
+    patches.combatPatching.patch(true);
+    await utils.genericUtils.sleep(1000);
+    await integration.dnd5e.registerAutomations();
+    await integration.dnd5e.registerScales();
+    await integration.midiQol.registerAutomations();
     if (game.modules.get('dnd-players-handbook')?.active) {
-        integration.phb.registerAutomations();
-        integration.phb.registerScales();
+        await integration.phb.registerAutomations();
+        await integration.phb.registerScales();
     }
-    if (game.modules.get('dnd-dungeon-masters-guide')?.active) integration.dmg.registerAutomations();
-    handlers.items.registerCompendiums();
+    if (game.modules.get('dnd-dungeon-masters-guide')?.active) await integration.dmg.registerAutomations();
+    await handlers.items.registerCompendiums();
+    catGate();
     Hooks.callAll('catReady');
 });
-Hooks.once('ddb-importer.compendiumCreationComplete', () => {
-    integration.ddbi.registerAutomations();
-    integration.ddbi.registerScales();
+Hooks.once('ddb-importer.compendiumCreationComplete', async () => {
+    await catInitGate;
+    await integration.ddbi.registerAutomations();
+    await integration.ddbi.registerScales();
 });
