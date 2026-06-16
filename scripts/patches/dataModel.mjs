@@ -79,6 +79,8 @@ function formula(wrapped) {
     const parent = this.parent;
     if (!parent) return wrapped();
     let identifier;
+    let activityIdentifier;
+    let dataIndex;
     let actor;
     let document;
     let targetItem; 
@@ -86,7 +88,9 @@ function formula(wrapped) {
         actor = parent.actor;
         if (!actor) return wrapped();
         targetItem = parent.item;
-        identifier = targetItem.system.identifier + '|' + parent.identifier;
+        identifier = targetItem.system.identifier; 
+        activityIdentifier = parent.identifier;
+        dataIndex = this._index;
         document = parent;
     } else {
         const grandParent = parent.parent;
@@ -102,7 +106,13 @@ function formula(wrapped) {
     const rollModifiers = new Set();
     actor.items.forEach(item => {
         if (item.type != 'feat') return;
-        const altFormula = item.flags.cat?.alternateFormula?.find(i => i.identifiers?.includes(identifier))?.value;
+        const altFormula = item.flags.cat?.alternateFormula?.find(a => a.identifiers?.some(id => {
+            let [itemID, activityID, idx = 0] = id.split('|').map(i => i.trim());
+            if (itemID !== identifier) return false;
+            if (activityID !== activityIdentifier) return false;
+            if (idx === 'all' || !activityID?.length) return true;
+            return idx == dataIndex;
+        }))?.value;
         if (altFormula) alternateFormulas.push(altFormula);
         const modifiersList = item.flags.cat?.rollModifiers;
         if (modifiersList) {
@@ -114,6 +124,7 @@ function formula(wrapped) {
     let bestFormula = originalFormula;
     if (alternateFormulas.length > 1) {
         const highestIndex = alternateFormulas.reduce((accumulator, currentFormula, currentIndex) => {
+            if (!currentFormula.length) return accumulator;
             const currentMax = rollUtils.rollDiceSync(currentFormula, {document, options: {maximize: true}}).total;
             if (currentMax > accumulator.maxValue) return {index: currentIndex, maxValue: currentMax};
             return accumulator;
