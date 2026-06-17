@@ -8,6 +8,7 @@ module.exports = {
         minimizer: [
             new TerserPlugin({
                 terserOptions: {
+                    keep_classnames: true,
                     format: {
                         comments: false
                     }
