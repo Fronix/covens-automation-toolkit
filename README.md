@@ -2,7 +2,7 @@
 
 An API module for Midi-QOL based automation. Previously a part of Cauldron of Plentiful Resources, now more user-friendly and with expanded capabilities. This module does not provide any automations and is intended for module authors and macro writers to use to create premade automations. For support, please join the [Coven's discord server](https://discord.gg/BumxBcQDrT).
 
-Find detailed information in [our wiki](https://github.com/chrisk123999/covens-automation-toolkit/wiki)
+Find detailed information in [our wiki](https://github.com/chrisk123999/covens-automation-toolkit/wiki).
 
 ### The Coven:
 [Chris](https://github.com/chrisk123999) - [Ko-fi](https://ko-fi.com/chrisk123999) [Patreon](https://www.patreon.com/cw/automatedcraftedcreations)<br> 
