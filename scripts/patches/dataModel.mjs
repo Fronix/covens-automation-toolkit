@@ -55,10 +55,20 @@ function checkReq(requirement, itemData, defaultRequireAll = true) {
     }
     return requireAll ? reqValues.every(v => v === itemData) : reqValues.some(v => v === itemData);
 }
-function isValidModifier(modDef, targetItem, identifier, {rollData} = {}) {
+function checkIdentifier(identifiers, identifier, {activityIdentifier, partIndex} = {}) {
+    if (!identifiers) return true;
+    return identifiers.some(id => {
+        let [itemID, activityID, idx = 0] = id.split('|').map(i => i.trim());
+        if (itemID !== identifier) return false;
+        if (activityID !== activityIdentifier) return false;
+        if (idx === 'all' || !activityID?.length) return true;
+        return idx == partIndex;
+    });
+}
+function isValidModifier(modDef, targetItem, identifier, {activityIdentifier, partIndex, damage} = {}) {
     const reqs = modDef.restrictions;
     if (!reqs) return true;
-    if (!checkReq(reqs.identifier, identifier, false)) return false;
+    if (!checkIdentifier(reqs.identifier?.value, identifier, {activityIdentifier, partIndex})) return false;
     if (!checkReq(reqs.type, targetItem.type, false)) return false;
     if (!checkReq(reqs.property, targetItem.system.properties, true)) return false;
     if (targetItem.type === 'spell') {
@@ -69,8 +79,8 @@ function isValidModifier(modDef, targetItem, identifier, {rollData} = {}) {
     }
     if (!checkReq(reqs.classIdentifier, targetItem.system.classIdentifier, false)) return false;
     if (reqs.damageTypes) {
-        if (!rollData) return false; 
-        const currentTypes = rollData.options?.types || [rollData.options?.type];
+        if (!damage) return false; 
+        const currentTypes = damage.types || [damage.type];
         if (!checkReq(reqs.damageTypes, currentTypes, false)) return false;
     }
     return true;
@@ -80,7 +90,7 @@ function formula(wrapped) {
     if (!parent) return wrapped();
     let identifier;
     let activityIdentifier;
-    let dataIndex;
+    let partIndex;
     let actor;
     let document;
     let targetItem; 
@@ -90,7 +100,7 @@ function formula(wrapped) {
         targetItem = parent.item;
         identifier = targetItem.system.identifier; 
         activityIdentifier = parent.identifier;
-        dataIndex = this._index;
+        partIndex = this._index;
         document = parent;
     } else {
         const grandParent = parent.parent;
@@ -106,18 +116,13 @@ function formula(wrapped) {
     const rollModifiers = new Set();
     actor.items.forEach(item => {
         if (item.type != 'feat') return;
-        const altFormula = item.flags.cat?.alternateFormula?.find(a => a.identifiers?.some(id => {
-            let [itemID, activityID, idx = 0] = id.split('|').map(i => i.trim());
-            if (itemID !== identifier) return false;
-            if (activityID !== activityIdentifier) return false;
-            if (idx === 'all' || !activityID?.length) return true;
-            return idx == dataIndex;
-        }))?.value;
+        const altFormula = item.flags.cat?.alternateFormula?.find(a => checkIdentifier(a.identifiers, identifier, {activityIdentifier, partIndex}))?.value;
         if (altFormula) alternateFormulas.push(altFormula);
         const modifiersList = item.flags.cat?.rollModifiers;
         if (modifiersList) {
             modifiersList.forEach(modDef => {
-                if (isValidModifier(modDef, targetItem, identifier) && modDef.modifiers) modDef.modifiers.forEach(m => rollModifiers.add(m));
+                if (isValidModifier(modDef, targetItem, identifier, {activityIdentifier, partIndex, damage: this}) && modDef.modifiers) 
+                    modDef.modifiers.forEach(m => rollModifiers.add(m));
             });
         }
     });
@@ -132,7 +137,7 @@ function formula(wrapped) {
         bestFormula = alternateFormulas[highestIndex];
     }
     if (rollModifiers.size) {
-        const terms = Roll.parse(bestFormula);
+        const terms = Roll.parse(bestFormula, document.getRollData());
         terms.forEach(term => {
             if (term.modifiers) {
                 rollModifiers.forEach(mod => {

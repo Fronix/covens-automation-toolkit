@@ -97,7 +97,7 @@
           "Field": "Formula",
           "Hint": "Roll formula offered as an alternative; the highest-rolling option is used.",
           "Identifiers": "Target Identifiers",
-          "IdentifiersHint": "Comma-separated target identifiers this formula applies to (item|activity)."
+          "IdentifiersHint": "Comma-separated target identifiers this formula applies to (item|activity|partIndex)."
         },
         "alternateAbilities": {
           "Title": "Alternate Abilities: {name}",

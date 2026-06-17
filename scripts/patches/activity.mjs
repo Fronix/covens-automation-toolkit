@@ -47,7 +47,6 @@ function getDamageConfig(wrapped, config) {
     const targetItem = this.item;
     const actor = this.actor;
     if (!actor) return rollConfig;
-    const identifier = targetItem.system.identifier + '|' + this.identifier;
     rollConfig.rolls.forEach(rollData => {
         if (!rollData.parts) return;
         const rollModifiers = new Set();
@@ -56,7 +55,7 @@ function getDamageConfig(wrapped, config) {
             const modifiersList = item.flags.cat?.rollModifiers;
             if (modifiersList) {
                 modifiersList.forEach(modDef => {
-                    if (dataModel.isValidModifier(modDef, targetItem, identifier, {rollData}) && modDef.modifiers) {
+                    if (dataModel.isValidModifier(modDef, targetItem, targetItem.system.identifier, {activityIdentifier: this.identifier, damage: rollData.options}) && modDef.modifiers) {
                         modDef.modifiers.forEach(m => rollModifiers.add(m));
                     }
                 });
@@ -64,7 +63,7 @@ function getDamageConfig(wrapped, config) {
         });
         if (rollModifiers.size) {
             rollData.parts = rollData.parts.map(part => {
-                const terms = Roll.parse(part);
+                const terms = Roll.parse(part, rollData.data);
                 terms.forEach(term => {
                     if (term.modifiers) {
                         rollModifiers.forEach(mod => {
