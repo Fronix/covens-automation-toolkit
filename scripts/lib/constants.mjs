@@ -3,7 +3,6 @@ import {RegisteredAutomations} from './automations.mjs';
 import {RegisteredScales} from './scales.mjs';
 import {RegisteredAnimations} from './animation.mjs';
 import {SummonsManager} from './summons.mjs';
-import {Source, SourceManager} from './sourceDocuments.mjs';
 const workflowPasses = {
     preTargeting: 'preTargeting',
     preItemRoll: 'preItemRoll',
