@@ -37,10 +37,15 @@ function addEmbeddedMacroError(trigger, error) {
     if (embeddedMacroErrors[key].length > 10) embeddedMacroErrors[key].shift();
     console.error('%cCAT%c | ERROR > Execution error in embedded macro: ' + key + '\n', 'color: red; font-weight: bold;', 'color: inherit;', error);
 }
-function addRegistrationError(data, type, message) {
+function addRegistrationError(data, type, error) {
     registrationErrors[type] ??= [];
-    registrationErrors[type].push([JSON.stringify(data), message]);
-    console.error(data, message);
+    registrationErrors[type].push({
+        message: error.toString(),
+        stack: error.stack,
+        data: JSON.stringify(data),
+        time: Date.now()
+    });
+    console.error('%cCAT%c | ERROR > Validation error for ' + type + ' registry:\n', 'color: red; font-weight: bold;', 'color: inherit;', error.toString(), error.stack);
 }
 function group(label = 'Group', {force = false} = {}) {
     if (force || game.settings.get('cat', 'displayDebugLogs')) {
@@ -54,6 +59,7 @@ export default {
     logs,
     macroErrors,
     registrationErrors,
+    embeddedMacroErrors,
     addEntry,
     addMacroError,
     addEmbeddedMacroError,

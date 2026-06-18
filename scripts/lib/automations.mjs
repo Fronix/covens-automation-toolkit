@@ -238,7 +238,7 @@ export class RegisteredAutomations {
             }
             const data = {
                 source,
-                rule: rules,
+                rules: rule,
                 identifier,
                 version: versions[identifier] ?? documentUtils.getVersion(document) ?? '0',
                 uuid: document.uuid,
