@@ -34,10 +34,20 @@ function getCombatData(token) {
         currentTurn: combat ? combat.turn : null
     };
 }
+function findNearby(token, range, {disposition = 'all', includeIncapacitated = true, includeToken = false} = {}) {
+    const dispositions = {
+        all: undefined,
+        ally: 1,
+        neutral: 0,
+        enemy: -1
+    };
+    return MidiQOL.findNearby(dispositions[disposition], token.object, range, {includeIncapacitated, includeToken}).filter(token => !token.document.hidden);
+}
 export default {
     getSavedCastData,
     getDistance,
     checkCover,
     isEnemy,
-    getCombatData
+    getCombatData,
+    findNearby
 };
