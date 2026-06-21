@@ -65,3 +65,4 @@ Hooks.once('ddb-importer.compendiumCreationComplete', async () => {
         await integration.ddbi.registerScales(module);
     }
 });
+Hooks.once('macro-autocomplete.ready', integration.macroautocomplete.registerCAT);

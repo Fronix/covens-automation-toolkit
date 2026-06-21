@@ -1,5 +1,6 @@
 import {constants} from '../lib/_module.mjs';
 import {uiUtils} from '../utilities/_module.mjs';
+import {macroautocomplete} from '../integration/_modules.mjs';
 
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 const {fields} = foundry.data;
@@ -232,5 +233,6 @@ export default class EmbeddedMacroEditorApp extends HandlebarsApplicationMixin(A
             this.bringToFront();
             uiUtils.centerWindow(this, {width: 820, height: 480});
         }
+        macroautocomplete.inContext(context, this, this.#documentType);
     }
 }
