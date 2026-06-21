@@ -7,7 +7,7 @@ async function createRegion(region, options, userId) {
     await regions.regionEffects(region);
     await new Events.RegionEvent([region], constants.regionPasses.created, {options}).run();
 }
-async function doRegionMove(region, locationData, {movementPromise}) {
+async function doRegionMove(region, locationData, {movementPromise} = {}) {
     const regionTokens = regionUtils.getRegionMovementTokens(region, locationData);
     if (movementPromise) await movementPromise;
     await regions.processMovedRegionActivities(region, regionTokens.entered, constants.regionPasses.entered);

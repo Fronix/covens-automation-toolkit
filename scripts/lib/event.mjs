@@ -181,7 +181,8 @@ class CatEvent {
                         identifier: trigger.identifier,
                         name: trigger.name,
                         macroClass: i,
-                        macroConfig: macro
+                        macroConfig: macro,
+                        macroName: macro.name ?? i.name
                     };
                     if (trigger.sourceToken) data.sourceToken = trigger.sourceToken;
                     sortedTriggers.push(this.appendData(data));
@@ -227,10 +228,10 @@ class CatEvent {
         for (let trigger of this.sortedTriggers) {
             let result;
             if (typeof trigger.macro === 'string') {
-                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 result = await this.executeScript(trigger.macro, trigger);
             } else {
-                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 try {
                     result = await trigger.macro(trigger);
                 } catch (error) {
@@ -256,10 +257,10 @@ class CatEvent {
         for (let trigger of this.sortedTriggers) {
             let result;
             if (typeof trigger.macro === 'string') {
-                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 result = this.executeScriptSync(trigger.macro, trigger);
             } else {
-                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 try {
                     result = trigger.macro(trigger);
                 } catch (error) {
@@ -460,10 +461,10 @@ class RegionEvent extends CatEvent {
         this._debugEvent();
         for (let trigger of this.sortedTriggers) {
             if (typeof trigger.macro === 'string') {
-                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 await this.executeScript(trigger.macro, trigger);
             } else {
-                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 try {
                     await trigger.macro(trigger);
                 } catch (error) {
@@ -594,10 +595,10 @@ class AuraEvent extends CatEvent {
         for (let trigger of this.sortedTriggers) {
             let result;
             if (typeof trigger.macro === 'string') {
-                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Embedded Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 result = await this.executeScript(trigger.macro, trigger);
             } else {
-                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macro.name + ' from ' + trigger.name);
+                Logging.addEntry('DEBUG', 'Executing Macro: ' + trigger.macroName + ' from ' + trigger.name);
                 try {
                     result = await trigger.macro(trigger);
                 } catch (error) {

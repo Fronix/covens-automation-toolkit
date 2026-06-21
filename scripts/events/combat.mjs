@@ -12,7 +12,7 @@ async function updateCombat(combat, updates, context) {
     if (currentRound < previousRound || (currentTurn < previousTurn && currentRound === previousRound)) return;
     const currentCombatant = combat.combatants.get(combat.current.combatantId);
     const previousCombatant = combat.combatants.get(combat.previous.combatantId);
-    const currentToken = currentCombatant.token;
+    const currentToken = currentCombatant?.token;
     const previousToken = previousCombatant?.token;
     if (previousToken) {
         await regions.processRegionActivities(previousToken, Array.from(previousToken.regions), constants.combatPasses.turnEnd, {combatData: {inCombat: true, currentRound: previousRound, currentTurn: previousTurn, combatId: combat.id}});

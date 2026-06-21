@@ -9,9 +9,9 @@ export default class EmbeddedMacros {
         const macros = this.embeddedMacros.filter(macro => macro.event === event && macro.pass === pass);
         return macros.map(macro => ({
             source: 'embedded',
-            rules: documentUtils.getVersion(this.document),
-            identifier: macro.name,
-            macros: [macro] 
+            rules: documentUtils.getRules(this.document),
+            name: macro.name,
+            macros: macro.macros
         }));
     }
     async #update() {
