@@ -61,7 +61,7 @@ jobs:
         tag: ${{ github.event.release.tag_name }}
         body: ${{ github.event.release.body }}
 
-     Ping Foundry VTT API to auto-publish (Requires FOUNDRY_KEY repository secret)
+    # Ping Foundry VTT API to auto-publish (Requires FOUNDRY_KEY repository secret)
     - name: FoundryVTT AutoPublish
       uses: fjogeleit/http-request-action@v2
       continue-on-error: true
