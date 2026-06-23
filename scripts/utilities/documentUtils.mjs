@@ -16,19 +16,20 @@ function getVersion(document) {
     return document.flags.cat?.automation?.version;
 }
 function getSavedCastData(document) {
+    let castData;
     switch(document.documentName) {
-        case 'Activity': return activityUtils.getSavedCastData(document);
-        case 'Item': return itemUtils.getSavedCastData(document);
-        case 'Token': return tokenUtils.getSavedCastData(document);
-        case 'Actor': return actorUtils.getSavedCastData(document);
-        case 'Effect': return effectUtils.getCastData(document);
-        case 'Region': return regionUtils.getCastData(document);
-        default: return {
-            castLevel: -1,
-            baseLevel: -1,
-            saveDC: -1
-        };
+        case 'Activity': castData = activityUtils.getSavedCastData(document); break;
+        case 'Item': castData = itemUtils.getSavedCastData(document); break;
+        case 'Token': castData = tokenUtils.getSavedCastData(document); break;
+        case 'Actor': castData = actorUtils.getSavedCastData(document); break;
+        case 'Effect': castData = effectUtils.getCastData(document); break;
+        case 'Region': castData = regionUtils.getCastData(document); break;
     }
+    return castData ?? {
+        castLevel: -1,
+        baseLevel: -1,
+        saveDC: -1
+    };
 }
 async function deleteEmbeddedDocuments(document, type, ids, {forceGM = false, options} = {}) {
     const hasPermission = queryUtils.hasPermission(document, game.user.id);
