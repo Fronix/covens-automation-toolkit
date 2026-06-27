@@ -150,6 +150,12 @@ function negateDamageItemDamage(ditem) {
     ditem.damageDetail.forEach(i => i.value = 0);
     ditem.rawDamageDetail.forEach(i => i.value = 0);
 }
+function setWorkflowProperty(workflow, path, value) {
+    genericUtils.setProperty(workflow, 'cat.' + path, value);
+}
+function getWorkflowProperty(workflow, path) {
+    return genericUtils.getProperty(workflow, 'cat.' + path);
+}
 export default {
     getActionType,
     isAttackType,
@@ -159,5 +165,7 @@ export default {
     completeItemUse,
     syntheticItemRoll,
     syntheticItemDataRoll,
-    negateDamageItemDamage
+    negateDamageItemDamage,
+    setWorkflowProperty,
+    getWorkflowProperty
 };
