@@ -804,6 +804,7 @@ class CalledEvent extends CatEvent {
     constructor(actor, pass, data) {
         super(pass);
         this.name = 'Called';
+        this.trigger = Triggers.CalledTrigger;
         this.data = data;
         this.setContext(actor);
     }

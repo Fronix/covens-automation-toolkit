@@ -1,5 +1,5 @@
 import {documentUtils, genericUtils} from './_module.mjs';
-import {constants} from '../lib/_module.mjs';
+import {constants, Events} from '../lib/_module.mjs';
 import {itemEvents} from '../events/_module.mjs';
 function getCurrentAutomation(item) {
     const identifier = documentUtils.getIdentifier(item);
@@ -264,6 +264,12 @@ async function getSourceDocumentByIdentifier(identifier, type) {
         if (match) return await pack.getDocument(match._id);
     }
 }
+async function calledEvent(pass, actor, {multiResult, canOverlap, data} = {}) {
+    return new Events.CalledEvent(actor, pass, data).run({canOverlap, multiResult});
+}
+function calledEventSync(pass, actor, {multiResult, canOverlap, data} = {}) {
+    return new Events.CalledEvent(actor, pass, data).runSync({canOverlap, multiResult});
+}
 export default {
     getCurrentAutomation,
     getAutomationStatus,
@@ -289,5 +295,7 @@ export default {
     setAllGenericConfigs,
     getGenericAnimationConfig,
     getSourceDataSources,
-    getSourceDocumentByIdentifier
+    getSourceDocumentByIdentifier,
+    calledEvent,
+    calledEventSync
 };
