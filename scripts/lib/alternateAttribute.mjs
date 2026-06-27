@@ -31,16 +31,6 @@ class AlternateAttribute {
         return this.#allowedFlagHolders;
     }
 
-    #validate(item, data) {
-        const cleaned = this.#schema.clean(data, {partial: true});
-        const validationError = this.#schema.validate(cleaned);
-        if (validationError) {
-            Logging.addAttributeError(item, cleaned, validationError.asError());
-            return false;
-        }
-        return cleaned;
-    }
-
     #validAttributeSource(sourceItem) {
         if (!sourceItem) return false;
         if (sourceItem.type !== 'equipment') return true;
@@ -58,8 +48,14 @@ class AlternateAttribute {
         }, []);
     }
 
-    create(item, value, restrictions) {
-        return this.#validate(item, {value, restrictions});
+    validate(item, data) {
+        const cleaned = this.#schema.clean(data, {partial: true});
+        const validationError = this.#schema.validate(cleaned);
+        if (validationError) {
+            Logging.addAttributeError(item, cleaned, validationError.asError());
+            return {cleaned, valid: false, failure: validationError};
+        }
+        return {cleaned, valid: true};
     }
 
     evaluate({sourceItem, ...context}) {
@@ -68,8 +64,8 @@ class AlternateAttribute {
         if (!this.#validAttributeSource(sourceItem)) return;
         const options = new Set();
         for (const a of attributes) {
-            const cleaned = this.#validate(sourceItem, a);
-            if (!cleaned) continue;
+            const {cleaned, valid} = this.validate(sourceItem, a);
+            if (!valid) continue;
             let succeeds = true;
             for (const [type, r] of Object.entries(cleaned.restrictions)) {
                 if (!r) continue;

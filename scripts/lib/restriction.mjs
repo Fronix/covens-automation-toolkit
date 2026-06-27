@@ -1,6 +1,12 @@
 import {genericUtils} from '../utilities/_module.mjs';
 
 const fields = foundry.data.fields;
+const RESULTS = {
+    PASS: true,
+    FAIL: false,
+    FORCE_PASS: 'force',
+    FORCE_FAIL: 'force-fail'
+};
 const TYPES = {};
 
 const mapKeyKey = config => Object.entries(config).reduce((acc, [key, _]) => (acc[key] = key, acc), {});
@@ -9,21 +15,19 @@ const mapKeyLabel = config => Object.entries(config).reduce((acc, [key, value]) 
 class AttributeRestriction {
 
     #type;
-    #hint;
-    #label;
     #choices;
     #evaluate;
+    #canInvert;
     #canRequireAll;
     #propertyPath;
 
-    constructor({type, evaluate, choices, canRequireAll, propertyPath, hint, label}) {
+    constructor({type, evaluate, choices, canInvert, canRequireAll, propertyPath, hint, label}) {
         this.#type = type;
         this.#choices = choices;
         this.#evaluate = evaluate;
+        this.#canInvert = canInvert;
         this.#propertyPath = propertyPath;
         this.#canRequireAll = canRequireAll;
-        this.#hint = hint || `CAT.MEDKIT.DocProps.Restrictions.${type}.Hint`;
-        this.#label = label || `CAT.MEDKIT.DocProps.Restrictions.${type}.Label`;
     }
 
     get type() {
@@ -32,26 +36,30 @@ class AttributeRestriction {
 
     get schema() {
         const data = {
-            value: new fields.ArrayField(new fields.StringField({choices: this.#choices, hint: this.#hint, label: this.#label}))
+            value: new fields.ArrayField(new fields.StringField({choices: this.#choices}))
         };
         if (this.#canRequireAll) data.requireAll = new fields.BooleanField({required: true, initial: false});
+        if (this.#canInvert) data.invert = new fields.BooleanField({required: true, initial: false});
         return new fields.SchemaField(data, {required: false});
     }
 
     evaluate(restriction, context) {
         if (!restriction.value?.length) return true;
         context.propertyPath = this.#propertyPath;
-        return this.#evaluate(restriction, context);
+        const result = this.#evaluate(restriction, context);
+        if (result == RESULTS.FORCE_PASS) return true;
+        if (result == RESULTS.FORCE_FAIL) return false;
+        return restriction.invert ? !result : result;
     }
 }
 
-function registerRestriction({type, evaluate, choices, canRequireAll, propertyPath, hint, label}) {
-    TYPES[type] = new AttributeRestriction({type, evaluate, choices, canRequireAll, propertyPath, hint, label});
+function registerRestriction({type, evaluate, choices, canInvert, canRequireAll, propertyPath}) {
+    TYPES[type] = new AttributeRestriction({type, evaluate, choices, canInvert, canRequireAll, propertyPath});
 }
 
 function checkList({value, requireAll}, {data, item, propertyPath}) {
     data ??= genericUtils.getProperty(item, propertyPath);
-    if (!data) return false;
+    if (!data) return RESULTS.FORCE_FAIL;
     if (data instanceof Set) {
         return requireAll ? value.every(v => data.has(v)) : value.some(v => data.has(v));
     }
@@ -78,6 +86,7 @@ const ITEM_TYPES = ['consumable', 'equipment' ,'feat', 'loot', 'spell', 'tool', 
 registerRestriction({
     type: 'Type',
     propertyPath: 'type',
+    canInvert: true,
     choices: () => ITEM_TYPES.reduce((acc, key) => (acc[key] = _loc(CONFIG.Item.typeLabels[key]), acc), {}),
     evaluate: checkList
 });
@@ -86,6 +95,7 @@ registerRestriction({
     type: 'Property',
     propertyPath: 'system.properties',
     canRequireAll: true,
+    canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.itemProperties),
     evaluate: checkList
 });
@@ -93,6 +103,7 @@ registerRestriction({
 registerRestriction({
     type: 'School',
     propertyPath: 'system.school',
+    canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.spellSchools),
     evaluate: checkList
 });
@@ -100,6 +111,7 @@ registerRestriction({
 registerRestriction({
     type: 'Level',
     propertyPath: 'system.level',
+    canInvert: true,
     choices: () => CONFIG.DND5E.spellLevels,
     evaluate: checkList
 });
@@ -107,6 +119,7 @@ registerRestriction({
 registerRestriction({
     type: 'Ability',
     propertyPath: 'system.ability',
+    canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.abilities),
     evaluate: checkList
 });
@@ -114,15 +127,17 @@ registerRestriction({
 registerRestriction({
     type: 'Method',
     propertyPath: 'system.method',
+    canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.spellcasting),
     evaluate: checkList
 });
 
 registerRestriction({
     type: 'DamageType',
+    canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.damageTypes),
     evaluate: (restriction, {damage}) => {
-        if (!damage) return false;
+        if (!damage) return RESULTS.FORCE_FAIL;
         return checkList(restriction, {data: damage.types || [damage.type]});
     }
 });

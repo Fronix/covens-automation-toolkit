@@ -166,6 +166,13 @@ export default class ItemMedkit extends MedkitApp {
         context.docPropHint = _loc('CAT.MEDKIT.DocProps.Hint', {list: attributes.map(a => _loc(`CAT.MEDKIT.DocProps.Props.${a[0]}.Label`)).join(', ')});
         const flags = this._getFlags();
         context.alternateAttributes = [];
+        const valueSummary = (attr, values) => {
+            if (!Array.isArray(values)) return values;
+            const choices = attr.element.choices;
+            const options = typeof choices === 'function' ? choices() : choices;
+            if (!options) return values.join(', ');
+            return values.map(v => options[v]).join(', ');
+        };
         for (const [type, attributeConfig] of attributes) {
             if (!attributeConfig.allowedFlagHolders.includes(this.document.type)) continue;
             context.alternateAttributes.push({
@@ -173,7 +180,7 @@ export default class ItemMedkit extends MedkitApp {
                 label: _loc(`CAT.MEDKIT.DocProps.Props.${type}.Label`),
                 attributes: (flags.alternateAttributes[type] ?? []).map((attr, index) => ({
                     index, 
-                    valueSummary: Array.isArray(attr.value) ? attr.value.join(', ') : attr.value,
+                    valueSummary: valueSummary(attributeConfig.schema.fields.value, attr.value),
                     restrictionSummary: Object.entries(attr.restrictions).filter(r => !!r[1]).map(r => _loc(`CAT.MEDKIT.DocProps.Restrictions.${r[0]}.Label`)).join(', ')
                 }))
             });
@@ -254,14 +261,20 @@ export default class ItemMedkit extends MedkitApp {
 
     #writeDocProp(type, entry, original) {
         const attribute = constants.alternateAttributes[type];
-        if (!attribute) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.NotDefined', {type}));
-        const created = attribute.create(this.document, entry.value, entry.restrictions);
-        if (!created) return;
+        if (!attribute) {
+            ui.notifications.error(_loc('CAT.MEDKIT.DocProps.NotDefined', {type}));
+            return false;
+        }
+        const {cleaned, valid, failure} = attribute.validate(this.document, entry);
+        if (!valid) {
+            ui.notifications.error(failure.toString());
+            return false;
+        }
         const flags = this._getFlags();
         flags.alternateAttributes ??= {};
         flags.alternateAttributes[type] ??= [];
-        if (original === null) flags.alternateAttributes[type].push(created);
-        else flags.alternateAttributes[type][original] = created;
+        if (original === null) flags.alternateAttributes[type].push(cleaned);
+        else flags.alternateAttributes[type][original] = cleaned;
         this.render();
     }
 }

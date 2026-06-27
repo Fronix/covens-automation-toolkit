@@ -3,11 +3,6 @@ import {uiUtils, genericUtils} from '../utilities/_module.mjs';
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 const {fields} = foundry.data;
 
-const CHOICE_RESTRICTIONS = ['type', 'property', 'school', 'ability', 'damageTypes', 'level', 'method'];
-const REQUIRE_ALL = ['property'];
-const FREEFORM_RESTRICTIONS = ['identifier'];
-const NUMERIC_RESTRICTIONS = ['level'];
-
 const csv = arr => (Array.isArray(arr) ? arr : []).join(', ');
 const splitCsv = raw => String(raw ?? '').split(',').map(s => s.trim()).filter(Boolean);
 
@@ -25,7 +20,7 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
         this.#onSubmit = onSubmit;
         this.#titleName = titleName ?? '';
         this.#attribute = constants.alternateAttributes[type];
-        this.#entry = entry ?? this.#attribute?.create();
+        this.#entry = entry ?? this.#attribute?.validate().cleaned;
         if (!this.#attribute) ui.notifications.error(_loc('CAT.MEDKIT.DocProps.NotDefined', {type}));
     }
 
@@ -54,87 +49,89 @@ export default class DocPropertyEditorApp extends HandlebarsApplicationMixin(App
         return options;
     }
 
-    #prepBasicField(schema) {
-        if (schema.hint) schema.hint = _loc(schema.hint);
-        if (schema.label) schema.label = _loc(schema.label);
-        return schema;
-    }
-
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         context.title = this.title;
         context.type = this.#type;
         const e = this.#entry;
         const schema = this.#attribute.schema.fields;
+        context.valuePath = schema.value.fieldPath;
         if (schema.value instanceof fields.ArrayField) {
             context.value = csv(e.value);
-            context.valueHint = schema.value.element.hint;
-            context.valueLabel = schema.value.element.label;
+            context.valueHint = _loc(schema.value.element.hint);
+            context.valueLabel = _loc(schema.value.element.label);
             const choices = schema.value.element.choices;
             if (choices) {
                 context.valueChoices = this.#fetchChoices(choices, e.value);
             } else {
-                context.valueField = this.#prepBasicField(schema.value.element);
+                context.valueField = schema.value.element;
             }
         } else {
             context.value = e.value ?? '';
-            context.valueField = this.#prepBasicField(schema.value);
+            context.valueField = schema.value;
+            context.valueHint = _loc(schema.value.hint);
+            context.valueLabel = _loc(schema.value.label);
         }
         context.restrictions = schema.restrictions.entries().map(([key, restrictionSchema]) => {
-            const {value, requireAll} = restrictionSchema.fields;
+            const {value, requireAll, invert} = restrictionSchema.fields;
+            const inverted = foundry.utils.getProperty(e, invert?.fieldPath);
             const config = {
                 key,
-                hint: value.element.hint,
-                label: value.element.label,
-                hasRequireAll: !!requireAll,
-                requireAll: foundry.utils.getProperty(e, requireAll?.fieldPath)
+                hint: _loc(`CAT.MEDKIT.DocProps.Restrictions.${key}.${inverted ? 'Inverted' : ''}Hint`),
+                label: _loc(`CAT.MEDKIT.DocProps.Restrictions.${key}.Label`),
+                valuePath: value.fieldPath,
+                requireAllPath: requireAll?.fieldPath,
+                requireAll: foundry.utils.getProperty(e, requireAll?.fieldPath),
+                requireAllLabel: _loc(`CAT.MEDKIT.DocProps.Restrictions.${inverted ? 'ExcludeAll' : 'RequireAll'}`),
+                invertPath: invert?.fieldPath,
+                invert: inverted
             };
             const data = foundry.utils.getProperty(e, value.fieldPath);
             if (value.element.choices) {
                 config.options = this.#fetchChoices(value.element.choices, data);
             } else {
                 config.value = csv(data);
-                config.field = this.#prepBasicField(value.element);
+                config.field = value.element;
             }
             return config;
         });
         return context;
     }
 
+    _onChangeForm(formConfig, event) {
+        super._onChangeForm(formConfig, event);
+        const invert = event.target?.closest?.('.cat-docprop-invert');
+        if (!invert) return;
+        const restrictionType = this.#attribute.schema.getField(invert.name)?.parent.name;
+        if (!restrictionType) return;
+        const hint = this.element.querySelector(`#cat-docprop-hint-${restrictionType}`);
+        const label = this.element.querySelector(`#cat-docprop-requireAllLabel-${restrictionType}`);
+        if (hint) hint.innerHTML = _loc(`CAT.MEDKIT.DocProps.Restrictions.${restrictionType}.${invert.checked ? 'Inverted' : ''}Hint`);
+        if (label) label.innerHTML = _loc(`CAT.MEDKIT.DocProps.Restrictions.${invert.checked ? 'ExcludeAll' : 'RequireAll'}`);
+    }
+
     /** @this {DocPropertyEditorApp} */
     static #onFormSubmit(_event, _form, formData) {
-        const data = genericUtils.expandObject(formData.object);
-        const parseMulti = raw => { try { return raw ? JSON.parse(raw) : []; } catch { return []; } };
-        let entry;
-        if (this.#type === 'rollModifiers') {
-            const modifiers = splitCsv(data.modifiers);
-            if (!modifiers.length) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.rollModifiers.Invalid'));
-            const restrictions = {};
-            for (const key of CHOICE_RESTRICTIONS) {
-                let values = parseMulti(data[key]);
-                if (NUMERIC_RESTRICTIONS.includes(key)) values = values.map(Number).filter(n => !Number.isNaN(n));
-                if (!values.length) continue;
-                restrictions[key] = {value: values};
-                if (REQUIRE_ALL.includes(key)) restrictions[key].requireAll = !!data.requireAll?.[key];
+        const parseArray = (field, path, parser) => {
+            const data = parser(formData.object[path]);
+            if (data?.length) formData.object[path] = data;
+            else {
+                if (!field.parent.fieldPath)
+                    return delete formData.object[path];
+                for (const property of Object.values(field.parent.fields))
+                    delete formData.object[property.fieldPath];
             }
-            for (const key of FREEFORM_RESTRICTIONS) {
-                const values = splitCsv(data[key]);
-                if (values.length) restrictions[key] = {value: values};
-            }
-            entry = {modifiers, restrictions};
-        } else if (this.#type === 'alternateFormula') {
-            const value = String(data.value ?? '').trim();
-            const identifiers = splitCsv(data.identifiers);
-            if (!value) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.InvalidValue'));
-            if (!identifiers.length) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.InvalidIdentifier'));
-            entry = {value, identifiers};
-        } else {
-            const identifier = String(data.identifier ?? '').trim();
-            if (!identifier) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.InvalidIdentifier'));
-            const value = parseMulti(data.value);
-            if (!value.length) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.InvalidValue'));
-            entry = {identifier, value};
+        };
+
+        const schema = this.#attribute.schema;
+        for (const path of Object.keys(formData.object)) {
+            const field = schema.getField(path);
+            if (!(field instanceof fields.ArrayField)) continue;
+            if (field.element.choices) parseArray(field, path, JSON.parse);
+            else parseArray(field, path, splitCsv);
         }
+        const entry = genericUtils.expandObject(formData.object);
+        if (!entry.value?.length) return ui.notifications.error(_loc('CAT.MEDKIT.DocProps.InvalidValue'));
         if (this.#onSubmit?.(entry) !== false) this.close();
     }
 

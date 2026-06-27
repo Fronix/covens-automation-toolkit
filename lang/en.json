@@ -116,14 +116,18 @@
         "Restrictions": {
           "Legend": "Restrictions",
           "Hint": "Leave a restriction empty to skip it. Comma-separate free-form values.",
-          "RequireAll": "Require all",
+          "Invert": "Invert",
+          "RequireAll": "Require All",
+          "ExcludeAll": "Exclude If Matches All",
           "Ability": {
             "Label": "Abilities",
-            "Hint": "Match spells that use any selected ability."
+            "Hint": "Match spells that use any selected ability.",
+            "InvertedHint": "Exclude spells that use selected abilities."
           },
           "DamageType": {
             "Label": "Damage Types",
-            "Hint": "Match any selected damage type."
+            "Hint": "Match any selected damage type.",
+            "InvertedHint": "Exclude any selected damage type."
           },
           "Identifier": {
             "Label": "Target Identifiers",
@@ -131,23 +135,28 @@
           },
           "Level": {
             "Label": "Spell Levels",
-            "Hint": "Match any selected spell level."
+            "Hint": "Match any selected spell level.",
+            "InvertedHint": "Exclude selected spell levels."
           },
           "Method": {
             "Label": "Spell Methods",
-            "Hint": "Match any selected spellcasting method."
+            "Hint": "Match any selected spellcasting method.",
+            "InvertedHint": "Exclude selected spellcasting methods."
           },
           "Property": {
             "Label": "Properties",
-            "Hint": "Match any or all selected item properties."
+            "Hint": "Match any or all selected item properties.",
+            "InvertedHint": "Exclude any or all selected item properties."
           },
           "School": {
             "Label": "Spell Schools",
-            "Hint": "Match any selected spell school."
+            "Hint": "Match any selected spell school.",
+            "InvertedHint": "Exclude selected spell schools"
           },
           "Type": {
             "Label": "Item Types",
-            "Hint": "Match any selected item type."
+            "Hint": "Match any selected item type.",
+            "InvertedHint": "Exclude selected item types."
           }
         }
       },
