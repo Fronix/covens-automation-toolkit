@@ -220,7 +220,10 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     _prepareConfigurationCategories(automation) {
-        const configs = automation?.config;
+        const configs = Object.entries(automation?.config ?? {}).map(([key, value]) => ({
+            ...value,
+            key: key
+        }));
         if (!configs?.length) return [];
         const currentValues = this.#flags.config ?? {};
         const grouped = new Map();
