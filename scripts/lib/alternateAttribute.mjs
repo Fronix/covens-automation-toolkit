@@ -3,20 +3,19 @@ import {AttributeRestrictions as Restrictions} from './_module.mjs';
 
 const fields = foundry.data.fields;
 const dndFields = dnd5e.dataModels.fields;
-const TYPES = [];
 
 class AlternateAttribute {
 
     #type;
     #schema;
-    #getFlagHolders;
+    #allowedFlagHolders;
 
-    constructor({type, valueSchema, restrictionSchema, getFlagHolders}) {
+    constructor({type, valueSchema, restrictionSchema, allowedFlagHolders}) {
         this.#type = type;
-        this.#getFlagHolders = getFlagHolders;
+        this.#allowedFlagHolders = allowedFlagHolders;
         this.#schema = new fields.SchemaField({
             value: valueSchema,
-            restrictions: new fields.SchemaField(restrictionSchema, {required: false})
+            restrictions: new fields.SchemaField(restrictionSchema)
         });
     }
 
@@ -26,6 +25,10 @@ class AlternateAttribute {
 
     get schema() {
         return this.#schema;
+    }
+
+    get allowedFlagHolders() {
+        return this.#allowedFlagHolders;
     }
 
     #validate(item, data) {
@@ -47,11 +50,16 @@ class AlternateAttribute {
     }
 
     getFlagHolders(actor) {
-        return this.#getFlagHolders?.(actor) ?? actor.items;
+        if (!this.#allowedFlagHolders?.length) return actor.items;
+        return this.#allowedFlagHolders.reduce((list, type) => {
+            const allowed = actor.itemTypes[type] ?? [];
+            list.push(...allowed);
+            return list;
+        }, []);
     }
 
     create(item, value, restrictions) {
-        return this.#validate(item, {type: this.#type, value, restrictions});
+        return this.#validate(item, {value, restrictions});
     }
 
     evaluate({sourceItem, ...context}) {
@@ -83,19 +91,6 @@ class AlternateAttribute {
     }
 }
 
-function registerAttribute({type, valueSchema, getRestrictionSchema, getFlagHolders}) {
-    TYPES.push({type, valueSchema, getRestrictionSchema, getFlagHolders});
-}
-
-function buildAttributes() {
-    return TYPES.reduce((list, attribute) => (list[attribute.type] = new AlternateAttribute({
-        type: attribute.type,
-        valueSchema: attribute.valueSchema,
-        getFlagHolders: attribute.getFlagHolders,
-        restrictionSchema: attribute.getRestrictionSchema().reduce((list, r) => (list[r.type] = r.schema, list), {})
-    }), list), {});
-}
-
 function getFormulaRestrictions() {
     return [
         Restrictions.DamageType,
@@ -109,48 +104,57 @@ function getFormulaRestrictions() {
     ];
 }
 
-function getFormulaFlagHolders(actor) {
-    return [
-        ...actor.itemTypes.feat,
-        ...actor.itemTypes.equipment
-    ];
+function buildAttributes() {
+    const ATTRIBUTES = {};
+    const registerAttribute = attribute => ATTRIBUTES[attribute.type] = new AlternateAttribute({
+        ...attribute,
+        restrictionSchema: attribute.restrictions.reduce((list, r) => (list[r.type] = r.schema, list), {})
+    });
+
+    registerAttribute({
+        type: 'DamageFormula',
+        valueSchema: new dndFields.FormulaField({
+            hint: '',
+            label: '',
+            placeholder: '1d4 + @mod',
+            required: true
+        }),
+        allowedFlagHolders: ['feat', 'equipment'],
+        restrictions: getFormulaRestrictions()
+    });
+
+    registerAttribute({
+        type: 'RollModifier',
+        valueSchema: new fields.ArrayField(new fields.StringField({
+            hint: '',
+            label: '',
+            placeholder: 'x, min2, r',
+            required: true
+        })),
+        allowedFlagHolders: ['feat', 'equipment'],
+        restrictions: getFormulaRestrictions()
+    });
+
+    registerAttribute({
+        type: 'Ability',
+        valueSchema: new fields.ArrayField(new fields.StringField({
+            choices: () => Restrictions.mapKeyLabel(CONFIG.DND5E.abilities),
+            hint: '',
+            label: '',
+            placeholder: 'dex, con',
+            required: true
+        })),
+        allowedFlagHolders: ['feat'],
+        restrictions: [
+            Restrictions.DamageType,
+            Restrictions.Identifier,
+            Restrictions.Property,
+            Restrictions.Type
+        ]
+    });
+
+    return ATTRIBUTES;
 }
-
-registerAttribute({
-    type: 'DamageFormula',
-    valueSchema: new dndFields.FormulaField({
-        placeholder: '1d4 + @mod',
-        required: true
-    }),
-    getFlagHolders: getFormulaFlagHolders,
-    getRestrictionSchema: getFormulaRestrictions
-});
-
-registerAttribute({
-    type: 'RollModifier',
-    valueSchema: new fields.ArrayField(new fields.StringField({
-        placeholder: 'x, min2, r',
-        required: true
-    })),
-    getFlagHolders: getFormulaFlagHolders,
-    getRestrictionSchema: getFormulaRestrictions
-});
-
-registerAttribute({
-    type: 'Ability',
-    valueSchema: new fields.ArrayField(new fields.StringField({
-        choices: () => Restrictions.mapKeyLabel(CONFIG.DND5E.abilities),
-        placeholder: 'dex, con',
-        required: true
-    })),
-    getRestrictionSchema: () => [
-        Restrictions.DamageType,
-        Restrictions.Identifier,
-        Restrictions.Property,
-        Restrictions.Type
-    ],
-    getFlagHolders: (actor) => actor.itemTypes.feat
-});
 
 export default {
     buildAttributes
