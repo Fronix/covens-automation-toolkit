@@ -212,7 +212,7 @@ async function updateScales(item, {automation} = {}) {
         const advancementKey = scaleValue ? scaleValue.id : (scale.data._id ?? foundry.utils.randomID());
         const classData = classItem.toObject();
         classData.system.advancement[advancementKey] = scale.data;
-        classData.system.advancement[advancementKey].configuration.identifier = targetIdentifier;
+        classData.system.advancement[advancementKey].configuration.identifier = scale.identifier;
         if (scaleValue) delete classData.system.advancement[advancementKey]._id;
         const change = {_id: classItem.id, 'system.advancement': classData.system.advancement};
         const currentUpdate = updates.find(i => i._id === classItem.id);

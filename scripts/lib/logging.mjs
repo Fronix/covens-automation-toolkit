@@ -69,6 +69,7 @@ function groupEnd({force = false} = {}) {
 export default {
     logs,
     macroErrors,
+    macroWarnings,
     registrationErrors,
     embeddedMacroErrors,
     addEntry,

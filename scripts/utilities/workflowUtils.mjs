@@ -159,7 +159,7 @@ function getWorkflowProperty(workflow, path) {
 async function bonusDamage(workflow, formula, {ignoreCrit = false, damageType = workflow.defaultDamageType} = {}) {
     formula = String(formula);
     if (workflow.isCritical && !ignoreCrit) formula = rollUtils.getCriticalFormula(formula, workflow.activity);
-    const roll = await CONFIG.Dice.DamageRoll(formula, workflow.activity.getRollData(), {type: damageType}).evaluate();
+    const roll = await new CONFIG.Dice.DamageRoll(formula, workflow.activity.getRollData(), {type: damageType}).evaluate();
     workflow.damageRolls.push(roll);
     await workflow.setDamageRolls(workflow.damageRolls);
 }
