@@ -199,7 +199,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const context = await super._prepareContext(options);
         context.document = this.#document;
         context.label = this.#document.metadata?.label ?? this.#document.name ?? '';
-        context.medkitStatus = constants.MEDKIT_STATUSES?.UNKNOWN;
+        context.medkitStatus = undefined;
         context.statusLabel = 'CAT.MEDKIT.STATUSES.Unavailable';
         context.isDirty = this.isDirty;
         context.embeddedCount = (this.#flags.embeddedMacros ?? []).length;
