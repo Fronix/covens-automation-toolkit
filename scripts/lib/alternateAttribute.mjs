@@ -1,4 +1,5 @@
 import {Logging} from './_module.mjs';
+import {itemUtils} from '../utilities/_module.mjs';
 import {AttributeRestrictions as Restrictions} from './_module.mjs';
 
 const fields = foundry.data.fields;
@@ -33,10 +34,7 @@ class AlternateAttribute {
 
     #validAttributeSource(sourceItem) {
         if (!sourceItem) return false;
-        if (sourceItem.type !== 'equipment') return true;
-        if (!sourceItem.system.equipped) return false;
-        if (sourceItem.system.attunement === 'required' && !sourceItem.system.attuned) return false;
-        return true;
+        return itemUtils.getEquipmentState(sourceItem);
     }
 
     getFlagHolders(actor) {
