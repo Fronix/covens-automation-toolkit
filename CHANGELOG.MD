@@ -1,4 +1,4 @@
-# 0.0.2 Release:
+# 0.0.3 Release:
 ## Update Notes:
 ## API Update Notes:
 - Added teleportToken, slideToken, and displaceToken to tokenUtils. Currently these count as token moves (and use up your turn movement), but this will be improved upon soon.
@@ -27,6 +27,10 @@
 ## Bug Fixes:
 - Actor medkit should actually function now.
 
-# 0.0.1 Release:
+# 0.0.2 Release
 ## Update Notes:
 - Initial Release
+
+# 0.0.1 Release:
+## Update Notes:
+- Testing Release
