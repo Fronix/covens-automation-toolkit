@@ -164,8 +164,12 @@ export default class EmbeddedMacroEditorApp extends HandlebarsApplicationMixin(A
             event: {field: new fields.StringField({label: _loc('CAT.MEDKIT.EmbeddedMacros.Fields.Event'), choices: eventChoices, blank: true}), value: this.#macro.event}
         };
         if (this.#macro.event) {
-            const passChoices = (map[this.#macro.event] ?? []).reduce((acc, pass) => (acc[pass.value] = pass, acc), {});
-            inputs.pass = {field: new fields.StringField({label: _loc('CAT.MEDKIT.EmbeddedMacros.Fields.Pass'), choices: passChoices, blank: true}), value: this.#macro.pass};
+            if (this.#macro.event === 'called') {
+                inputs.pass = {field: new fields.StringField({label: _loc('CAT.MEDKIT.EmbeddedMacros.Fields.Pass')}), value: this.#macro.pass};
+            } else {
+                const passChoices = (map[this.#macro.event] ?? []).reduce((acc, pass) => (acc[pass.value] = pass, acc), {});
+                inputs.pass = {field: new fields.StringField({label: _loc('CAT.MEDKIT.EmbeddedMacros.Fields.Pass'), choices: passChoices, blank: true}), value: this.#macro.pass};
+            }
             if (this.#macro.pass) {
                 const {required, optional} = getPassFields(this.#documentType, this.#macro.event, this.#macro.pass);
                 for (const key of [...required, ...optional]) inputs[key] = extraFieldInput(key, this.#macro);
