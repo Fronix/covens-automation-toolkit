@@ -1,5 +1,4 @@
 # 0.0.3 Release:
-## Update Notes:
 ## API Update Notes:
 - Added teleportToken, slideToken, and displaceToken to tokenUtils. Currently these count as token moves (and use up your turn movement), but this will be improved upon soon.
 - Added aimTeleport, preTeleport, postTeleport, displace, and slide as movement event passes.
