@@ -142,6 +142,14 @@ registerRestriction({
     }
 });
 
+registerRestriction({
+    type: 'WeaponType',
+    propertyPath: 'system.type.value',
+    canInvert: true,
+    choices: () => CONFIG.DND5E.weaponTypes,
+    evaluate: checkList
+});
+
 export default {
     mapKeyKey,
     mapKeyLabel,

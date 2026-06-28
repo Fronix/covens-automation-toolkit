@@ -90,6 +90,7 @@ function getFormulaRestrictions() {
         Restrictions.Identifier,
         Restrictions.DamageType,
         Restrictions.Type,
+        Restrictions.WeaponType,
         Restrictions.Property,
         Restrictions.Ability,
         Restrictions.School,
@@ -143,7 +144,8 @@ function buildAttributes() {
             Restrictions.Identifier,
             Restrictions.DamageType,
             Restrictions.Property,
-            Restrictions.Type
+            Restrictions.Type,
+            Restrictions.WeaponType
         ]
     });
 
