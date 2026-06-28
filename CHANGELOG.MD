@@ -3,7 +3,7 @@
 - Added teleportToken, slideToken, and displaceToken to tokenUtils. Currently these count as token moves (and use up your turn movement), but this will be improved upon soon.
 - Added aimTeleport, preTeleport, postTeleport, displace, and slide as movement event passes.
 - Improved macro autocomplete handling for summons API.
-- Added getDependencies to activity utils and item utils. This will return any items that an activity or item is set to consume.
+- Added getDependencies to activityUtils and itemUtils. This will return any items that an activity or item is set to consume.
 - Added setWorkflowProperty and getWorkflowProperty. Small helpers to pass data between workflow passes.
 - Added getCriticalFormula to rollUtils. Returns the critical formula for the passed in formula.
 - Added bonusDamage to workflowUtils. Addes bonus damage to a workflow.
@@ -20,7 +20,7 @@
 - Automations with scales now properly get applied to the source class when an item is updated.
 - Fixed itemUtils.getEquipmentState.
 ## Bug Fixes:
-- Class bonuses show up in the document properties intead of config.
+- Class bonuses show up in the document properties instead of config.
 - Automation configs now properly work.
 
 ## Bug Fixes:
