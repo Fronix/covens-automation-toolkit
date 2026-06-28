@@ -22,6 +22,7 @@ Hooks.once('init', () => {
     lib.constants.automations = new lib.Automations.RegisteredAutomations();
     lib.constants.scales = new lib.Scales.RegisteredScales();
     lib.constants.animations = new lib.Animations.RegisteredAnimations();
+    lib.constants.alternateAttributes = lib.AlternateAttributes.buildAttributes();
     handlers.quickConditions.registerHelpers();
     globalThis.cat = {
         api: buildApi(),

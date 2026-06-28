@@ -1,3 +1,5 @@
+export {default as AlternateAttributes} from './alternateAttribute.mjs';
+export {default as AttributeRestrictions} from './restriction.mjs';
 export {default as Automations} from './automations.mjs';
 export {default as constants} from './constants.mjs';
 export {default as EmbeddedMacros} from './embeddedMacros.mjs';
