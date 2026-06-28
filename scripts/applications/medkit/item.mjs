@@ -78,10 +78,9 @@ export default class ItemMedkit extends MedkitApp {
         const selectedSource = this._getSelectedSource();
         const rulesValue = this._getRulesValue();
         const itemType = this.document.type;
-        const currAutomation = (identifier && rulesValue && selectedSource && selectedSource !== 'none')
-            ? constants.automations.getAutomationByIdentifier(identifier, {rules: rulesValue, source: selectedSource, monsterIdentifier, type: itemType})
-            : undefined;
-        context.source = selectedSource;
+        const savedSource = documentUtils.getSource(this.document);
+        const currAutomation = (identifier && rulesValue && selectedSource && selectedSource !== 'none') ? constants.automations.getAutomationByIdentifier(identifier, {rules: rulesValue, source: selectedSource, monsterIdentifier, type: itemType}) : (!savedSource ? automationUtils.getCurrentAutomation(this.document) : undefined);
+        context.source = currAutomation?.source ?? selectedSource;
         const availableAutomations = automationUtils.getAvailableAutomations(this.document);
         switch (automationUtils.getAutomationStatus(this.document)) {
             case -2:
@@ -177,7 +176,7 @@ export default class ItemMedkit extends MedkitApp {
             context.alternateAttributes.push({
                 type,
                 label: _loc(`CAT.MEDKIT.DocProps.Props.${type}.Label`),
-                attributes: (flags.alternateAttributes[type] ?? []).map((attr, index) => ({
+                attributes: (flags.alternateAttributes?.[type] ?? []).map((attr, index) => ({
                     index, 
                     valueSummary: valueSummary(attributeConfig.schema.fields.value, attr.value),
                     restrictionSummary: Object.entries(attr.restrictions).filter(r => !!r[1]).map(r => _loc(`CAT.MEDKIT.DocProps.Restrictions.${r[0]}.Label`)).join(', ')

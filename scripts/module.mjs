@@ -24,19 +24,12 @@ Hooks.once('init', () => {
     lib.constants.animations = new lib.Animations.RegisteredAnimations();
     lib.constants.alternateAttributes = lib.AlternateAttributes.buildAttributes();
     handlers.quickConditions.registerHelpers();
+    handlers.movement.register();
     globalThis.cat = {
         api: buildApi(),
         applications,
         lib,
         utils
-    };
-    // TODO: If/when the system implements a "forced movement" type, we can remove this and use that
-    CONFIG.Token.movement.actions.catForce = {
-        label: 'Coven\'s Automation Toolkit Forced Movement',
-        icon: 'fa-solid fa-explosion',
-        measure: false,
-        canSelect: false,
-        terrainAction: null
     };
     Hooks.callAll('catInit');
 });

@@ -292,6 +292,7 @@ export default {
     animations: undefined,
     /** @type {SummonsManager} */
     summons: undefined,
+    alternateAttributes: undefined,
     gameReady: false,
     workflowPasses,
     workflowHookNames,

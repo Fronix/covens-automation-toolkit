@@ -757,6 +757,9 @@
     },
     "Summons": {
       "SummonFolder": "Summons"
+    },
+    "Movement": {
+      "Forced": "Forced Movement"
     }
   }
 }
