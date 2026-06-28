@@ -59,45 +59,6 @@ function availableAbilities(wrapped) {
     });
     return allAbilities;
 }
-function getDamageConfig(wrapped, config) {
-    const rollConfig = wrapped(config);
-    if (!rollConfig || !rollConfig.rolls?.length) return rollConfig;
-    const actor = this.actor;
-    if (!actor) return rollConfig;
-    const context = {
-        actor,
-        activity: this,
-        document: this,
-        item: this.item,
-        activityIdentifier: this.identifier,
-        identifier: this.item.system.identifier
-    };
-    const RollModifier = constants.alternateAttributes.RollModifier;
-    const flagHolders = RollModifier.getFlagHolders(actor);
-    rollConfig.rolls.forEach(rollData => {
-        if (!rollData.parts) return;
-        const rollModifiers = new Set();
-        flagHolders.forEach(item => {
-            context.sourceItem = item;
-            const newModifiers = RollModifier.evaluate(context);
-            if (newModifiers?.size) newModifiers.forEach(mod => rollModifiers.add(mod));
-        });
-        if (rollModifiers.size) {
-            rollData.parts = rollData.parts.map(part => {
-                const terms = Roll.parse(part, rollData.data);
-                terms.forEach(term => {
-                    if (term.modifiers) {
-                        rollModifiers.forEach(mod => {
-                            if (!term.modifiers.includes(mod)) term.modifiers.push(mod);
-                        });
-                    }
-                });
-                return Roll.getFormula(terms);
-            });
-        }
-    });
-    return rollConfig;
-}
 function prepareFinalDataSave(wrapped, ...args) {
     wrapped.apply(this, args);
     if (!this.actor || !this.save?.dc?.value) return;
@@ -124,20 +85,10 @@ function prepareFinalDataAttack(wrapped, ...args) {
     }, 0);
     if (totalBonus) this.attack.bonus += ' + ' + totalBonus;
 }
-const activityTypes = [
-    'AttackActivity',
-    'DamageActivity',
-    'SaveActivity',
-    'HealActivity'
-];
 function patch(enabled) {
     if (enabled) {
         Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.AttackActivity.prototype.availableAbilities', {force: true});
         libWrapper.register('cat', 'dnd5e.documents.activity.AttackActivity.prototype.availableAbilities', availableAbilities, 'MIXED');
-        activityTypes.forEach(type => {
-            Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.' + type + '.prototype.getDamageConfig', {force: true});
-            libWrapper.register('cat', 'dnd5e.documents.activity.' + type + '.prototype.getDamageConfig', getDamageConfig, 'WRAPPER');
-        });
         Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.SaveActivity.prototype.prepareFinalData', {force: true});
         libWrapper.register('cat', 'dnd5e.documents.activity.SaveActivity.prototype.prepareFinalData', prepareFinalDataSave, 'WRAPPER');
         Logging.addEntry('DEBUG', 'Patching: dnd5e.documents.activity.AttackActivity.prototype.prepareFinalData', {force: true});
@@ -145,10 +96,6 @@ function patch(enabled) {
     } else {
         Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.AttackActivity.prototype.availableAbilities');
         libWrapper.unregister('cat', 'dnd5e.documents.activity.AttackActivity.prototype.availableAbilities');
-        activityTypes.forEach(type => {
-            Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.' + type + '.prototype.getDamageConfig');
-            libWrapper.unregister('cat', 'dnd5e.documents.activity.' + type + '.prototype.getDamageConfig');
-        });
         Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.SaveActivity.prototype.prepareFinalData');
         libWrapper.unregister('cat', 'dnd5e.documents.activity.SaveActivity.prototype.prepareFinalData');
         Logging.addEntry('DEBUG', 'Unpatching: dnd5e.documents.activity.AttackActivity.prototype.prepareFinalData');
