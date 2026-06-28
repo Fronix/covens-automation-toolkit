@@ -195,7 +195,7 @@ const miscHookNames = {
 };
 const MEDKIT_STATUSES = {
     UNKNOWN: 'unknown',
-    OUTDATED_CPR: 'outdated',
+    OUTDATED: 'outdated',
     AVAILABLE: 'available',
     UP_TO_DATE: 'up-to-date',
     CONFIGURABLE: 'configurable'
