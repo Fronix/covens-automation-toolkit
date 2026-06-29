@@ -52,7 +52,7 @@ async function setFlag({uuid, scope, key, value}) {
     return document.uuid;
 }
 async function createActor({actorData}) {
-    const actor = await Actor.create(actorData);
+    const actor = await Actor.implementation.create(actorData);
     return actor.uuid;
 }
 async function createFolder({folderData}) {
