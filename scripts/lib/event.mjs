@@ -321,7 +321,7 @@ class BaseWorkflowEvent extends CatEvent {
     get unsortedTriggers() {
         let triggers = [];
         const passName = this.pass.capitalize();
-        if (this.activity && CatEvent.hasCatFlag(this.activity)) triggers.push(new this.trigger(this.activity, this.pass));
+        if (this.activity && CatEvent.hasCatFlag(this.activity)) triggers.push(new this.trigger(this.activity, 'activity' + passName));
         if (this.item) {
             if (CatEvent.hasCatFlag(this.item)) triggers.push(new this.trigger(this.item, 'item' + passName));
             this.item.effects.filter(effect => effect.type === 'enchantment' && effect.isAppliedEnchantment && CatEvent.hasCatFlag(effect)).forEach(effect => {

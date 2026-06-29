@@ -456,11 +456,11 @@ export default class CatRollResolver extends RollResolver {
                 for (const result of results) term.results.push({result: result === null ? term.randomFace() : result, active: true});
                 continue;
             }
-            for (const result of this.#backsolve(term, value, mode)) term.results.push(result);
+            for (const result of this._backsolve(term, value, mode)) term.results.push(result);
         }
     }
 
-    #backsolve(term, value, mode) {
+    _backsolve(term, value, mode) {
         const faces = term.faces;
         const n = Math.max(term.number ?? 1, 1);
         const advMode = term.options?.advantageMode ?? (faces === 20 ? (this.roll.options?.advantageMode ?? 0) : 0);

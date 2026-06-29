@@ -33,6 +33,9 @@ function decimalToFraction(decimal) {
     if (Number(decimal) >= 1) return Number(decimal);
     return '1/' + 1 / Number(decimal);
 }
+function notify(message, {type = 'info', localize = true} = {}) {
+    ui.notifications[type](message, {localize});
+}
 export default {
     setProperty,
     getProperty,
@@ -43,5 +46,6 @@ export default {
     sleep,
     decimalToFraction,
     isEmpty,
-    expandObject
+    expandObject,
+    notify
 };

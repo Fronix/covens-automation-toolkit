@@ -313,6 +313,12 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 option.allowBlank = true;
                 option.choices = this.#activityChoices();
                 break;
+            case 'selectEffect':
+                option.isCombobox = true;
+                option.allowBlank = true;
+                option.choices = this.#effectChoices();
+                console.log(option.choices);
+                break;
             case 'selectAnimation': {
                 const sel = (value && typeof value === 'object') ? value : descriptor.default;
                 option.isAnimationSelect = true;
@@ -371,7 +377,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     _getGenericMacros() {
-        return constants.macros?.getAllMacros?.({genericOnly: true}) ?? [];
+        return constants.macros?.getAllMacros?.({genericOnly: true, documentType: this.constructor.DOCUMENT_TYPE}) ?? [];
     }
 
     #genericDescriptors(macro, source, identifier) {
@@ -437,6 +443,12 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const activities = this.#document.system?.activities;
         if (!activities) return [];
         return [...activities].map(a => ({value: a.id, label: a.name ?? a.id, image: a.img}));
+    }
+
+    #effectChoices() {
+        const effects = this.#document.item ? this.#document.item.effects : this.#document.effects;
+        if (!effects) return [];
+        return [...effects].map(e => ({value: e.id, label: e.name ?? e.id, image: e.img}));
     }
 
     #summonItems(entry, base, configPath) {

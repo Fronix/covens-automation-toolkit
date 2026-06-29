@@ -30,9 +30,17 @@ function buildColorOptions(colorMap, {freeColors = [], labelPrefix = '', random,
     if (cycle) options.cycle = {label: labelPrefix + 'Cycle', requirements};
     return options;
 }
+function getEskieCredits() {
+    return {
+        name: 'Eskie',
+        discord: 'https://discord.gg/RXwkJD4hTe',
+        patreon: 'https://www.patreon.com/c/EskieEffects'
+    };
+}
 export default {
     getAnimation,
     preloadAnimations,
     simpleAttack,
-    buildColorOptions
+    buildColorOptions,
+    getEskieCredits
 };

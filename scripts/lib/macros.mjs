@@ -44,11 +44,12 @@ export class RegisteredMacros {
             macros
         };
     }
-    getAllMacros({genericOnly = false} = {}) {
+    getAllMacros({genericOnly = false, documentType} = {}) {
         const allMacros = [...this.fnMacros, ...this.overwriteMacros];
         const uniqueMacros = new Map();
         allMacros.forEach(macro => {
             if (!!macro.generic === genericOnly) {
+                if (documentType && !macro.documents?.includes(documentType)) return;
                 const compositeKey = macro.source + '|' + macro.identifier + '|' + macro.rules;
                 uniqueMacros.set(compositeKey, macro);
             }
