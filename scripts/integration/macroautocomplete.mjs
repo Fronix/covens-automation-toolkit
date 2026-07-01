@@ -162,10 +162,16 @@ const VARS = {
             name: property('string')
         }
     }),
-    // animation: () => variable(), ???
+    animation: () => ({
+        ...variable('object', 'Animation data for movement.'),
+        children: {
+            source: property('string', 'Identifier for animation source.'),
+            identifier: property('string', 'Identifier for registered animation.')
+        }
+    });
     range: () => variable('number', 'Distance or range limit for movement.'),
-    sourceToken: (api) => classInstance(api, CONFIG.Token.documentClass, 'Token that initiated teleport.'),
-    action: () => variable('string', 'Movement action, one of CONFIG.Token.movement.actions.'),
+    sourceToken: (api) => classInstance(api, CONFIG.Token.documentClass, 'Token that initiated a displace or slide.'),
+    action: () => variable('string', 'One of CONFIG.Token.movement.actions.'),
     teleport: () => variable('boolean', 'Trigger was a teleport')
 };
 
