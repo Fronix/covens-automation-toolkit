@@ -168,7 +168,7 @@ const VARS = {
             source: property('string', 'Identifier for animation source.'),
             identifier: property('string', 'Identifier for registered animation.')
         }
-    });
+    }),
     range: () => variable('number', 'Distance or range limit for movement.'),
     sourceToken: (api) => classInstance(api, CONFIG.Token.documentClass, 'Token that initiated a displace or slide.'),
     action: () => variable('string', 'One of CONFIG.Token.movement.actions.'),
