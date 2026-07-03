@@ -130,7 +130,8 @@ const itemHookNames = {
     createItem: 'createItem',
     deleteItem: 'deleteItem',
     updateItem: 'updateItem',
-    munched: 'ddb-importer.characterProcessDataComplete'
+    munched: 'ddb-importer.characterProcessDataComplete',
+    preUpdateItem: 'preUpdateItem'
 };
 const sheetHookNames = {
     getHeaderControlsActiveEffectConfig: 'getHeaderControlsActiveEffectConfig',

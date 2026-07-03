@@ -163,7 +163,7 @@ async function specialDurationEquipment(item, {removed} = {}) {
     await Promise.all(actorUtils.getEffects(item.actor, {includeItemEffects: true}).map(async effect => {
         let specialDurations = effect.flags.cat?.specialDuration;
         if (!specialDurations) return;
-        specialDurations.filter(j => equipmentTypes.includes(j));
+        specialDurations = specialDurations.filter(j => equipmentTypes.includes(j));
         if (!specialDurations.length) return;
         if (specialDurations.includes(item.system.type?.value)) await documentUtils.deleteDocument(effect);
     }));

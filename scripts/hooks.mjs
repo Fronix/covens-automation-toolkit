@@ -61,6 +61,8 @@ export function readyHooks() {
     Hooks.on(constants.actorHookNames.preDeleteActor, events.actorEvents.preDeleteActor);
     // Combat Events
     Hooks.on(constants.combatHookNames.preUpdateCombatant, events.combatEvents.preUpdateCombatant);
+    // Item Events
+    Hooks.on(constants.itemHookNames.preUpdateItem, events.itemEvents.preUpdateItem);
     if (queryUtils.isTheGM()) {
         // Combat Events
         Hooks.on(constants.combatHookNames.updateCombat, events.combatEvents.updateCombat);
