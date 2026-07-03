@@ -35,6 +35,7 @@ export default class CatMultiCombobox extends HTMLElement {
                 label: o.textContent ?? '',
                 image: o.dataset.image ?? '',
                 tag: o.dataset.tag ?? '',
+                group: o.closest('optgroup')?.getAttribute('label') ?? '',
                 weight: Number(o.dataset.weight) || 1,
                 max: o.dataset.max != null ? Number(o.dataset.max) : null
             };
@@ -101,7 +102,7 @@ export default class CatMultiCombobox extends HTMLElement {
     #renderOptions(filter) {
         const needle = filter.trim().toLowerCase();
         const matches = needle
-            ? this.#options.filter(o => o.label.toLowerCase().includes(needle))
+            ? this.#options.filter(o => o.label.toLowerCase().includes(needle) || o.group.toLowerCase().includes(needle))
             : this.#options;
         this.#list.replaceChildren();
         if (!matches.length) {
@@ -112,7 +113,15 @@ export default class CatMultiCombobox extends HTMLElement {
             this.#highlighted = -1;
             return;
         }
+        let lastGroup = '';
         matches.forEach((o, i) => {
+            if (o.group && o.group !== lastGroup) {
+                const header = document.createElement('li');
+                header.classList.add('cat-combobox-group');
+                header.textContent = o.group;
+                this.#list.append(header);
+            }
+            lastGroup = o.group;
             const li = document.createElement('li');
             li.dataset.value = o.value;
             const isSelected = this.#selected.has(o.value);

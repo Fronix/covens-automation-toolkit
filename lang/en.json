@@ -419,7 +419,18 @@
           "moveFinished": "Movement finished",
           "zeroSpeed": "Speed reduced to zero",
           "tempHP": "Temporary HP lost",
-          "tempMaxHP": "Temporary max HP lost"
+          "tempMaxHP": "Temporary max HP lost",
+          "Groups": {
+            "Workflow": "Workflow",
+            "Movement": "Movement",
+            "HitPoints": "Hit Points",
+            "ConditionAdded": "Condition Added",
+            "ConditionRemoved": "Condition Removed",
+            "Equipped": "Armor Equipped",
+            "ToolRolled": "Tool Rolled",
+            "ToolFailed": "Tool Check Failed",
+            "ToolSucceeded": "Tool Check Succeeded"
+          }
         },
         "Animation": "Animation",
         "NoAnimation": {

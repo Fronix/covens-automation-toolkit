@@ -1000,6 +1000,19 @@ cat-combobox {
     flex: 0 0 auto;
 }
 
+.cat-combobox-options .cat-combobox-group {
+    color: var(--cat-text-muted);
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    cursor: default;
+    border-top: 1px solid var(--cat-border-light);
+}
+
+.cat-combobox-options .cat-combobox-group:hover {
+    background: transparent;
+}
+
 .cat-combobox-options .cat-combobox-empty {
     color: var(--cat-text-muted);
     font-style: italic;

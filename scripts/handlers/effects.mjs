@@ -144,22 +144,16 @@ async function specialDuration(workflow) {
     }));
 }
 async function specialDurationConditions(effect) {
-    const statusEffectIds = CONFIG.statusEffects.map(i => i.id);
     await Promise.all(actorUtils.getEffects(effect.parent, {includeItemEffects: true}).filter(i => i.id != effect.id).map(async eff => {
-        let specialDurations = eff.flags.cat?.specialDuration;
-        if (!specialDurations) return;
-        specialDurations = specialDurations.filter(j => statusEffectIds.map(l => l + 'Removed'));
-        if (!specialDurations.length) return;
-        if (effect.statuses.some(k => specialDurations.includes(k + 'Removed'))) await documentUtils.deleteDocument(eff);
+        const specialDurations = eff.flags.cat?.specialDuration;
+        if (!specialDurations?.length) return;
+        if (effect.statuses.some(k => specialDurations.includes(k))) await documentUtils.deleteDocument(eff);
     }));
 }
 async function specialDurationRemovedConditions(effect) {
-    const statusEffectIds = CONFIG.statusEffects.map(i => i.id);
     await Promise.all(actorUtils.getEffects(effect.parent).filter(i => i.id != effect.id).map(async eff => {
-        let specialDurations = eff.flags.cat?.specialDuration;
-        if (!specialDurations) return;
-        specialDurations = specialDurations.filter(j => statusEffectIds.map(l => l + 'Removed'));
-        if (!specialDurations.length) return;
+        const specialDurations = eff.flags.cat?.specialDuration;
+        if (!specialDurations?.length) return;
         if (effect.statuses.some(k => specialDurations.includes(k + 'Removed'))) await documentUtils.deleteDocument(eff);
     }));
 }
@@ -182,6 +176,19 @@ async function specialDurationHitPoints(actor, updates) {
         const specialDurations = effect.flags.cat?.specialDuration;
         if (!specialDurations) return;
         if (specialDurations.some(i => validTypes.includes(i))) await documentUtils.deleteDocument(effect);
+    }));
+}
+async function specialDurationToolCheck(actor, roll, toolId) {
+    await Promise.all(actorUtils.getEffects(actor, {includeItemEffects: true}).map(async effect => {
+        const specialDurations = effect.flags.cat?.specialDuration;
+        if (!specialDurations) return;
+        let remove = specialDurations.includes(toolId);
+        const target = roll.options.target;
+        if (!remove && target) {
+            if (target > roll.total && specialDurations.includes(toolId + 'Fail')) remove = true;
+            if (target <= roll.total && specialDurations.includes(toolId + 'Succeed')) remove = true;
+        }
+        if (remove) await documentUtils.deleteDocument(effect);
     }));
 }
 async function specialDurationMove(actor) {
@@ -207,6 +214,7 @@ export default {
     specialDurationConditions,
     specialDurationRemovedConditions,
     specialDurationEquipment,
+    specialDurationToolCheck,
     specialDurationHitPoints,
     specialDurationMove,
     specialDurationZeroSpeed

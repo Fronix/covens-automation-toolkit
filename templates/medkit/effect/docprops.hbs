@@ -19,8 +19,12 @@
         <div class="form-group cat-multi-combobox-group">
             <label>{{localize "CAT.MEDKIT.Effect.SpecialDuration.Label"}}</label>
             <cat-multi-combobox input-id="cat-medkit-effect-durations" name="flags.cat.specialDuration">
-                {{#each specialDurationChoices}}
-                    <option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>
+                {{#each specialDurationGroups}}
+                    <optgroup label="{{label}}">
+                        {{#each options}}
+                            <option value="{{value}}"{{#if selected}} selected{{/if}}>{{label}}</option>
+                        {{/each}}
+                    </optgroup>
                 {{/each}}
             </cat-multi-combobox>
         </div>

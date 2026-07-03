@@ -1,23 +1,11 @@
 import MedkitApp from './base.mjs';
 const {fields} = foundry.data;
 
-// Fixed special-duration triggers enumerated from mechanics/specialDuration.mjs.
-// TODO: dynamic triggers?
-const SPECIAL_DURATIONS = [
-    'endOfWorkflow',
-    'forceSave',
-    'attackMissed',
-    'damagedByAlly',
-    'damagedByEnemy',
-    'hitByAnotherCreature',
-    'attackedByAnotherCreature',
-    'hitBySource',
-    'attackedBySource',
-    'moveFinished',
-    'zeroSpeed',
-    'tempHP',
-    'tempMaxHP'
-];
+const SPECIAL_DURATION_GROUPS = {
+    Workflow: ['endOfWorkflow', 'forceSave', 'attackMissed', 'damagedByAlly', 'damagedByEnemy', 'hitByAnotherCreature', 'attackedByAnotherCreature', 'hitBySource', 'attackedBySource'],
+    Movement: ['moveFinished', 'zeroSpeed'],
+    HitPoints: ['tempHP', 'tempMaxHP']
+};
 
 export default class EffectMedkit extends MedkitApp {
     static DOCUMENT_TYPE = 'activeeffect';
@@ -60,10 +48,28 @@ export default class EffectMedkit extends MedkitApp {
             .map(c => ({...c, selected: pickedConditions.has(c.value)}));
 
         const pickedDurations = new Set(flags.specialDuration ?? []);
-        context.specialDurationChoices = SPECIAL_DURATIONS
-            .map(key => ({value: key, label: _loc(`CAT.MEDKIT.Effect.SpecialDurations.${key}`)}))
+        const sortChoices = choices => choices
             .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}))
             .map(c => ({...c, selected: pickedDurations.has(c.value)}));
+        const groupLabel = key => _loc(`CAT.MEDKIT.Effect.SpecialDurations.Groups.${key}`);
+        const prefixedGroup = (key, options) => {
+            const label = groupLabel(key);
+            return {label, options: sortChoices(options.map(o => ({value: o.value, label: `${label}: ${o.label}`})))};
+        };
+        const statusChoices = suffix => CONFIG.statusEffects.map(s => ({value: s.id + suffix, label: _loc(s.name ?? s.label ?? s.id)}));
+        const toolChoices = suffix => Object.entries(CONFIG.DND5E.tools).map(([key, tool]) => ({value: key + suffix, label: fromUuidSync(tool.id)?.name ?? key}));
+        context.specialDurationGroups = [
+            ...Object.entries(SPECIAL_DURATION_GROUPS).map(([key, list]) => ({
+                label: groupLabel(key),
+                options: sortChoices(list.map(k => ({value: k, label: _loc(`CAT.MEDKIT.Effect.SpecialDurations.${k}`)})))
+            })),
+            prefixedGroup('ConditionAdded', statusChoices('')),
+            prefixedGroup('ConditionRemoved', statusChoices('Removed')),
+            prefixedGroup('Equipped', Object.entries(CONFIG.DND5E.armorTypes).map(([key, label]) => ({value: key, label}))),
+            prefixedGroup('ToolRolled', toolChoices('')),
+            prefixedGroup('ToolFailed', toolChoices('Fail')),
+            prefixedGroup('ToolSucceeded', toolChoices('Succeed'))
+        ];
 
         this._prepareIdentifierField(context);
         return context;

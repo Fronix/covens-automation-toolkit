@@ -1,5 +1,6 @@
 import {DialogApp} from '../applications/_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
+import {effects} from '../handlers/_module.mjs';
 async function situational(actor, data) {
     return await new Events.ToolEvent(actor, constants.rollPasses.situational, data).run();
 }
@@ -33,7 +34,9 @@ async function bonus(actor, data) {
     return await new Events.ToolEvent(actor, constants.rollPasses.bonus, data).run();
 }
 async function post(actor, data) {
-    return await new Events.ToolEvent(actor, constants.rollPasses.post, data).run();
+    const result = await new Events.ToolEvent(actor, constants.rollPasses.post, data).run();
+    await effects.specialDurationToolCheck(actor, data.roll, data.toolId);
+    return result;
 }
 export default {
     situational,
