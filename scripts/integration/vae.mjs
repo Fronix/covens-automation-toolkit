@@ -30,13 +30,6 @@ function createEffectButton(effect, buttons) {
                     }
                 });
                 break;
-            case 'dismiss':
-                buttons.push({
-                    label: i.name,
-                    callback: () => {
-                        documentUtils.deleteDocument(effect);
-                    }
-                });
         }
     });
 }

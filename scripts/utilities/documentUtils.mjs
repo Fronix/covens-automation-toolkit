@@ -2,6 +2,14 @@ import {activityUtils, actorUtils, effectUtils, genericUtils, itemUtils, queryUt
 function getRules(document, {documentType = document.documentName} = {}) {
     return documentType === 'Item' ? document.system.source.rules : document.flags.cat?.automation?.rules;
 }
+/**
+ * Set document rules in the correct location. Does not perform updates.
+ * @param {object | foundry.abstract.Document} documentData
+ * @param {'2024' | '2014'} rules 
+ */
+function setRulesSync(documentData, rules) {
+    genericUtils.setProperty(documentData, 'flags.cat.automation.rules', rules);
+}
 function getSource(document) {
     return document.flags.cat?.automation?.source;
 }
@@ -11,6 +19,14 @@ function getIdentifier(document, {documentType = document.documentName} = {}) {
         case 'Item': return document.system.identifier;
         default: return document.flags.cat?.identifier ?? document.name.slugify();
     }
+}
+/**
+ * Set document identifier in the correct location. Does not perform updates.
+ * @param {object | foundry.abstract.Document} documentData
+ * @param {string} identifier 
+ */
+function setIdentifierSync(documentData, identifier) {
+    genericUtils.setProperty(documentData, 'flags.cat.identifier', identifier);
 }
 function getVersion(document) {
     return document.flags.cat?.automation?.version;
@@ -129,8 +145,10 @@ function getEffectData(document, id, {duration, concentrationItem} = {}) {
 }
 export default {
     getRules,
+    setRulesSync,
     getSource,
     getIdentifier,
+    setIdentifierSync,
     getVersion,
     getSavedCastData,
     deleteEmbeddedDocuments,
