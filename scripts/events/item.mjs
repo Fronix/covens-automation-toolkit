@@ -1,7 +1,6 @@
 import {constants, Events} from '../lib/_module.mjs';
-import {specialDuration} from '../mechanics/_module.mjs';
 import {queryUtils} from '../utilities/_module.mjs';
-import {items} from '../handlers/_module.mjs';
+import {items, effects} from '../handlers/_module.mjs';
 async function bulkUpdated(items) {
     await new Events.ItemsEvent(items, constants.itemPasses.bulkUpdated).run({canOverlap: true});
 }
@@ -26,7 +25,7 @@ async function updateItem(item, updates, options, userId) {
     const currentlyEquipped = updates.system?.equipped ?? item.system.equipped;
     const previouslyEquipped = item.system.equipped;
     if (currentlyEquipped && !previouslyEquipped) {
-        await specialDuration.specialDurationEquipment(item);
+        await effects.specialDurationEquipment(item);
         await new Events.ItemEvent(item, constants.itemPasses.equipped, {options, updates}).run();
     } else if (!currentlyEquipped && previouslyEquipped) {
         await new Events.ItemEvent(item, constants.itemPasses.unequipped, {options, updates}).run();

@@ -1,8 +1,7 @@
 import {genericUtils, regionUtils} from '../utilities/_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
 import {auraEvents, regionEvents} from '../events/_module.mjs';
-import {specialDuration} from '../mechanics/_module.mjs';
-import {regions} from '../handlers/_module.mjs';
+import {effects, regions} from '../handlers/_module.mjs';
 async function moveToken(token, movement, options, user) {
     if (user.id != game.user.id) return;
     const movementPromise = movement.animation.ended;
@@ -85,7 +84,7 @@ async function moveToken(token, movement, options, user) {
             await new Events.RegionEvent(enteredAndLeftRegions, constants.regionPasses.passedThrough, {tokens: [token]}).run();
         }
     }
-    await specialDuration.specialDurationMove(token.actor);
+    await effects.specialDurationMove(token.actor);
 }
 export default {
     moveToken
