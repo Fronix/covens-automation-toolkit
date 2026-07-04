@@ -95,7 +95,7 @@
           "Ability": {
             "Field": "Abilities",
             "Hint": "Extra abilities this attack may use.",
-            "Label": "Alternate Abilities"
+            "Label": "Alternate Attack Abilities"
           },
           "ACAbility": {
             "Field": "Ability",
@@ -110,13 +110,13 @@
           "DamageFormula": {
             "Field": "Formula",
             "Hint": "Roll formula offered as an alternative; the highest-rolling option is used.",
-            "Label": "Alternate Formulas"
+            "Label": "Alternate Damage Formulas"
           },
           "RollModifier": {
             "Field": "Modifiers",
             "Hint": "Comma-separated dice modifiers (e.g. x, min1, kh1).",
             "Invalid": "At least one modifier is required.",
-            "Label": "Roll Modifiers"
+            "Label": "Damage Roll Modifiers"
           }
         },
         "otherAbilities": {

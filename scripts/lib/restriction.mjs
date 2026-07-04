@@ -7,7 +7,7 @@ const RESULTS = {
     FORCE_PASS: 'force',
     FORCE_FAIL: 'force-fail'
 };
-const TYPES = {Item: {}, Actor: {}};
+const TYPES = {};
 
 const mapKeyKey = config => Object.entries(config).reduce((acc, [key, _]) => (acc[key] = key, acc), {});
 const mapKeyLabel = config => Object.entries(config).reduce((acc, [key, value]) => (acc[key] = value.label, acc), {});
@@ -53,12 +53,8 @@ class AttributeRestriction {
     }
 }
 
-function registerItemRestriction(config) {
-    TYPES.Item[config.type] = new AttributeRestriction(config);
-}
-
-function registerActorRestriction(config) {
-    TYPES.Actor[config.type] = new AttributeRestriction(config);
+function registerRestriction(config) {
+    TYPES[config.type] = new AttributeRestriction(config);
 }
 
 function checkList({value, requireAll}, {data, item, propertyPath}) {
@@ -73,7 +69,7 @@ function checkList({value, requireAll}, {data, item, propertyPath}) {
     return requireAll ? value.every(v => v === data) : value.some(v => v === data);
 }
 
-registerItemRestriction({
+registerRestriction({
     type: 'Identifier',
     evaluate: ({value: ids}, {identifier, activityIdentifier, partIndex}) => {
         return ids.some(id => {
@@ -87,7 +83,7 @@ registerItemRestriction({
 });
 
 const ITEM_TYPES = ['consumable', 'equipment' ,'feat', 'loot', 'spell', 'tool', 'weapon'];
-registerItemRestriction({
+registerRestriction({
     type: 'Type',
     propertyPath: 'type',
     canInvert: true,
@@ -95,7 +91,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'Property',
     propertyPath: 'system.properties',
     canRequireAll: true,
@@ -104,7 +100,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'School',
     propertyPath: 'system.school',
     canInvert: true,
@@ -112,7 +108,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'Level',
     propertyPath: 'system.level',
     canInvert: true,
@@ -120,7 +116,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'Ability',
     propertyPath: 'system.ability',
     canInvert: true,
@@ -128,7 +124,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'Method',
     propertyPath: 'system.method',
     canInvert: true,
@@ -136,7 +132,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'DamageType',
     canInvert: true,
     choices: () => mapKeyLabel(CONFIG.DND5E.damageTypes),
@@ -146,7 +142,7 @@ registerItemRestriction({
     }
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'WeaponType',
     propertyPath: 'system.type.value',
     canInvert: true,
@@ -154,7 +150,7 @@ registerItemRestriction({
     evaluate: checkList
 });
 
-registerItemRestriction({
+registerRestriction({
     type: 'DamagePart',
     choices: () => ({
         0: _loc('CAT.MEDKIT.DocProps.Restrictions.DamagePart.Base'),
@@ -168,41 +164,39 @@ registerItemRestriction({
     }
 });
 
-registerActorRestriction({
+registerRestriction({
     type: 'Armor',
     canInvert: true,
     canRequireAll: true,
     choices: () => ({
-        heavy: CONFIG.DND5E.armorTypes.heavy,
-        light: CONFIG.DND5E.armorTypes.light,
-        medium: CONFIG.DND5E.armorTypes.medium,
-        shield: CONFIG.DND5E.armorTypes.shield,
+        ...CONFIG.DND5E.armorTypes,
         unarmored: _loc('DND5E.ArmorClassUnarmored')
     }),
-    evaluate: (restriction, {actor}) => {
-        const armors = [];
+    evaluate: ({value, requireAll}, {actor}) => {
+        const results = [];
         const ac = genericUtils.getProperty(actor, 'system.attributes.ac');
-        for (const requirement of restriction.value) switch (requirement) {
-            case 'heavy':
-            case 'medium':
-            case 'light':
-                armors.push(requirement);
-                break;
+        for (const requirement of value) switch (requirement) {
             case 'shield': {
                 const shield = !!ac.equippedShield;
-                if (shield && !restriction.requireAll) return RESULTS.PASS;
-                if (!shield && restriction.requireAll) return RESULTS.FAIL;
+                if (shield && !requireAll) return RESULTS.PASS;
+                if (!shield && requireAll) return RESULTS.FAIL;
+                results.push(shield);
                 break;
             }
+            case 'natural':
             case 'unarmored': {
                 const unarmored = !ac.equippedArmor;
-                if (unarmored && !restriction.requireAll) return RESULTS.PASS;
-                if (!unarmored && restriction.requireAll) return RESULTS.FAIL;
+                if (unarmored && !requireAll) return RESULTS.PASS;
+                if (!unarmored && requireAll) return RESULTS.FAIL;
+                results.push(unarmored);
                 break;
             }
+            default:
+                results.push(requirement);
+                break;
         }
-        if (!armors.length) return RESULTS.PASS;
-        return armors.includes(ac.equippedArmor?.system.type.value);
+        const evaluate = r => typeof r === 'boolean' ? r : ac.equippedArmor?.system.type.value === r;
+        return (requireAll ? results.every : results.some).call(results, evaluate);
     }
 });
 

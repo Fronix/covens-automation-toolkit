@@ -87,7 +87,7 @@ class AlternateAttribute {
 }
 
 function resolveDamageParts({item, partIndex, allowedDamageParts}) {
-    if (!item) return;
+    if (!item) return true;
     const weapon = item.type === 'weapon';
     if (!allowedDamageParts?.length) return weapon ? partIndex === undefined : partIndex === 0;
     return allowedDamageParts.includes(String((partIndex ?? -1) + weapon));
@@ -95,16 +95,16 @@ function resolveDamageParts({item, partIndex, allowedDamageParts}) {
 
 function getFormulaRestrictions() {
     return [
-        Restrictions.Item.Identifier,
-        Restrictions.Item.DamagePart,
-        Restrictions.Item.DamageType,
-        Restrictions.Item.Type,
-        Restrictions.Item.WeaponType,
-        Restrictions.Item.Property,
-        Restrictions.Item.Ability,
-        Restrictions.Item.School,
-        Restrictions.Item.Method,
-        Restrictions.Item.Level
+        Restrictions.Identifier,
+        Restrictions.DamagePart,
+        Restrictions.DamageType,
+        Restrictions.Type,
+        Restrictions.WeaponType,
+        Restrictions.Property,
+        Restrictions.Ability,
+        Restrictions.School,
+        Restrictions.Method,
+        Restrictions.Level
     ];
 }
 
@@ -144,11 +144,11 @@ function buildAttributes() {
         })),
         allowedFlagHolders: ['feat'],
         restrictions: [
-            Restrictions.Item.Identifier,
-            Restrictions.Item.DamageType,
-            Restrictions.Item.Property,
-            Restrictions.Item.Type,
-            Restrictions.Item.WeaponType
+            Restrictions.Identifier,
+            Restrictions.DamageType,
+            Restrictions.Property,
+            Restrictions.Type,
+            Restrictions.WeaponType
         ]
     });
 
@@ -160,7 +160,7 @@ function buildAttributes() {
         }),
         allowedFlagHolders: ['feat'],
         restrictions: [
-            Restrictions.Actor.Armor
+            Restrictions.Armor
         ]
     });
 
@@ -173,7 +173,7 @@ function buildAttributes() {
         }),
         allowedFlagHolders: ['feat'],
         restrictions: [
-            Restrictions.Actor.Armor
+            Restrictions.Armor
         ]
     });
 
