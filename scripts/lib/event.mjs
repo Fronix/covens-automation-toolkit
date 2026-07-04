@@ -596,7 +596,7 @@ class AuraEvent extends CatEvent {
         this._debugEvent();
         if (!this.actor) return;
         const removedEffects = [];
-        const effects = actorUtils.getEffects(this.actor).filter(effect => effect.flags.cat?.auraEffect && effect.active);
+        const effects = actorUtils.getEffects(this.actor).filter(effect => effect.flags.cat?.auraEffect);
         await Promise.all(effects.map(async effect => {
             let identifier = documentUtils.getIdentifier(effect);
             if (!identifier || !effect.origin) {
