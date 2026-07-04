@@ -61,7 +61,7 @@ function effectDescription(effect, updates) {
     if (description) effect.updateSource({description});
 }
 async function createAnimations(effect) {
-
+    
 }
 async function deleteAnimations(effect) {
 
