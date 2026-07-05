@@ -9,10 +9,12 @@ class AlternateAttribute {
 
     #type;
     #schema;
+    #getValueSummary;
     #allowedFlagHolders;
 
-    constructor({type, valueSchema, restrictionSchema, allowedFlagHolders}) {
+    constructor({type, valueSchema, restrictionSchema, allowedFlagHolders, getValueSummary}) {
         this.#type = type;
+        this.#getValueSummary = getValueSummary;
         this.#allowedFlagHolders = allowedFlagHolders;
         this.#schema = new fields.SchemaField({
             value: valueSchema,
@@ -84,10 +86,19 @@ class AlternateAttribute {
         }
         return options;
     }
+
+    getValueSummary(values) {
+        if (this.#getValueSummary) return this.#getValueSummary(values);
+        if (!Array.isArray(values)) return values;
+        const choices = this.#schema.fields.value.element.choices;
+        const options = typeof choices === 'function' ? choices() : choices;
+        if (!options) return values.join(', ');
+        return values.map(v => options[v]).join(', ');
+    }
 }
 
 function resolveDamageParts({item, partIndex, allowedDamageParts}) {
-    if (!item) return;
+    if (!item) return true;
     const weapon = item.type === 'weapon';
     if (!allowedDamageParts?.length) return weapon ? partIndex === undefined : partIndex === 0;
     return allowedDamageParts.includes(String((partIndex ?? -1) + weapon));
@@ -149,6 +160,32 @@ function buildAttributes() {
             Restrictions.Property,
             Restrictions.Type,
             Restrictions.WeaponType
+        ]
+    });
+
+    registerAttribute({
+        type: 'ACFormula',
+        valueSchema: new dndFields.FormulaField({
+            deterministic: true,
+            required: true
+        }),
+        allowedFlagHolders: ['feat'],
+        restrictions: [
+            Restrictions.Armor
+        ]
+    });
+
+    registerAttribute({
+        type: 'ACAbility',
+        valueSchema: new fields.StringField({
+            choices: () => Restrictions.mapKeyLabel(CONFIG.DND5E.abilities),
+            initial: 'dex',
+            required: true
+        }),
+        getValueSummary: value => CONFIG.DND5E.abilities[value]?.label ?? value,
+        allowedFlagHolders: ['feat'],
+        restrictions: [
+            Restrictions.Armor
         ]
     });
 

@@ -64,7 +64,7 @@ function addRegistrationError(data, type, error) {
         data: JSON.stringify(data),
         time: Date.now()
     });
-    console.error('%cCAT%c | ERROR > Validation error for ' + type + ' registry:\n', 'color: red; font-weight: bold;', 'color: inherit;', error.message, error.stack);
+    console.error('%cCAT%c | ERROR > Validation error for ' + type + ' registry:\n', 'color: red; font-weight: bold;', 'color: inherit;', error.message);
 }
 function addAttributeError(document, attribute, error) {
     error = convertValidationError(error);
@@ -78,7 +78,7 @@ function addAttributeError(document, attribute, error) {
         time: Date.now()
     });
     if (attributeErrors[key].length > 10) attributeErrors[key].shift();
-    console.error('%cCAT%c | ERROR > Validation error on attribute from document: ' +  key + '\n', 'color: red; font-weight: bold;', 'color: inherit;', error.message, error.stack);
+    console.error('%cCAT%c | ERROR > Validation error on attribute from document: ' +  key + '\n', 'color: red; font-weight: bold;', 'color: inherit;', error.message);
 }
 function group(label = 'Group', {force = false} = {}) {
     if (force || game.settings.get('cat', 'displayDebugLogs')) {

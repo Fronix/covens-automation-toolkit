@@ -21,7 +21,7 @@ class AttributeRestriction {
     #canRequireAll;
     #propertyPath;
 
-    constructor({type, evaluate, choices, canInvert, canRequireAll, propertyPath, hint, label}) {
+    constructor({type, evaluate, choices, canInvert, canRequireAll, propertyPath}) {
         this.#type = type;
         this.#choices = choices;
         this.#evaluate = evaluate;
@@ -53,8 +53,8 @@ class AttributeRestriction {
     }
 }
 
-function registerRestriction({type, evaluate, choices, canInvert, canRequireAll, propertyPath}) {
-    TYPES[type] = new AttributeRestriction({type, evaluate, choices, canInvert, canRequireAll, propertyPath});
+function registerRestriction(config) {
+    TYPES[config.type] = new AttributeRestriction(config);
 }
 
 function checkList({value, requireAll}, {data, item, propertyPath}) {
@@ -161,6 +161,43 @@ registerRestriction({
     evaluate: (restriction, context) => {
         context.allowedDamageParts = restriction.value;
         return RESULTS.FORCE_PASS;
+    }
+});
+
+registerRestriction({
+    type: 'Armor',
+    canInvert: true,
+    canRequireAll: true,
+    choices: () => ({
+        ...CONFIG.DND5E.armorTypes,
+        unarmored: _loc('DND5E.ArmorClassUnarmored')
+    }),
+    evaluate: ({value, requireAll}, {actor}) => {
+        const results = [];
+        const ac = actor.system.attributes?.ac;
+        if (!ac) return RESULTS.FORCE_FAIL;
+        for (const requirement of value) switch (requirement) {
+            case 'shield': {
+                const shield = !!ac.equippedShield;
+                if (shield && !requireAll) return RESULTS.PASS;
+                if (!shield && requireAll) return RESULTS.FAIL;
+                results.push(shield);
+                break;
+            }
+            case 'natural':
+            case 'unarmored': {
+                const unarmored = !ac.equippedArmor;
+                if (unarmored && !requireAll) return RESULTS.PASS;
+                if (!unarmored && requireAll) return RESULTS.FAIL;
+                results.push(unarmored);
+                break;
+            }
+            default:
+                results.push(requirement);
+                break;
+        }
+        const evaluate = r => typeof r === 'boolean' ? r : ac.equippedArmor?.system.type.value === r;
+        return (requireAll ? results.every : results.some).call(results, evaluate);
     }
 });
 

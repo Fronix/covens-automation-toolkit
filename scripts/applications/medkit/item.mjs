@@ -164,21 +164,14 @@ export default class ItemMedkit extends MedkitApp {
         context.docPropHint = _loc('CAT.MEDKIT.DocProps.Hint', {list: attributes.map(a => _loc(`CAT.MEDKIT.DocProps.Props.${a[0]}.Label`)).join(', ')});
         const flags = this._getFlags();
         context.alternateAttributes = [];
-        const valueSummary = (attr, values) => {
-            if (!Array.isArray(values)) return values;
-            const choices = attr.element.choices;
-            const options = typeof choices === 'function' ? choices() : choices;
-            if (!options) return values.join(', ');
-            return values.map(v => options[v]).join(', ');
-        };
-        for (const [type, attributeConfig] of attributes) {
-            if (!attributeConfig.allowedFlagHolders.includes(this.document.type)) continue;
+        for (const [type, attribute] of attributes) {
+            if (!attribute.allowedFlagHolders.includes(this.document.type)) continue;
             context.alternateAttributes.push({
                 type,
                 label: _loc(`CAT.MEDKIT.DocProps.Props.${type}.Label`),
                 attributes: (flags.alternateAttributes?.[type] ?? []).map((attr, index) => ({
                     index, 
-                    valueSummary: valueSummary(attributeConfig.schema.fields.value, attr.value),
+                    valueSummary: attribute.getValueSummary(attr.value),
                     restrictionSummary: Object.entries(attr.restrictions).filter(r => !!r[1]).map(r => _loc(`CAT.MEDKIT.DocProps.Restrictions.${r[0]}.Label`)).join(', ')
                 }))
             });

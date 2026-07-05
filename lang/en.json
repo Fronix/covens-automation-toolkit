@@ -95,18 +95,28 @@
           "Ability": {
             "Field": "Abilities",
             "Hint": "Extra abilities this attack may use.",
-            "Label": "Alternate Abilities"
+            "Label": "Alternate Attack Abilities"
+          },
+          "ACAbility": {
+            "Field": "Ability",
+            "Hint": "Replace dexterity in default AC calculations, e.g. Half Plate: 15 + int (max 2)",
+            "Label": "Alternate AC Ability"
+          },
+          "ACFormula": {
+            "Field": "Formula",
+            "Hint": "Formula offered as an alternative. The highest value is used for base AC.",
+            "Label": "Alternate AC Formula"
           },
           "DamageFormula": {
             "Field": "Formula",
             "Hint": "Roll formula offered as an alternative; the highest-rolling option is used.",
-            "Label": "Alternate Formulas"
+            "Label": "Alternate Damage Formulas"
           },
           "RollModifier": {
             "Field": "Modifiers",
             "Hint": "Comma-separated dice modifiers (e.g. x, min1, kh1).",
             "Invalid": "At least one modifier is required.",
-            "Label": "Roll Modifiers"
+            "Label": "Damage Roll Modifiers"
           }
         },
         "otherAbilities": {
@@ -124,6 +134,11 @@
             "Label": "Abilities",
             "Hint": "Match spells that use any selected ability.",
             "InvertedHint": "Exclude spells that use selected abilities."
+          },
+          "Armor": {
+            "Label": "Armor",
+            "Hint": "Any or all selected must be equipped.",
+            "InvertedHint": "Any or all selected must not be equipped."
           },
           "DamagePart": {
             "Label": "Damage Part",
