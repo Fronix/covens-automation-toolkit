@@ -174,7 +174,8 @@ registerRestriction({
     }),
     evaluate: ({value, requireAll}, {actor}) => {
         const results = [];
-        const ac = genericUtils.getProperty(actor, 'system.attributes.ac');
+        const ac = actor.system.attributes?.ac;
+        if (!ac) return RESULTS.FORCE_FAIL;
         for (const requirement of value) switch (requirement) {
             case 'shield': {
                 const shield = !!ac.equippedShield;

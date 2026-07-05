@@ -1,5 +1,5 @@
 import {constants, Logging} from '../lib/_module.mjs';
-import {actorUtils, genericUtils, rollUtils} from '../utilities/_module.mjs';
+import {actorUtils, rollUtils} from '../utilities/_module.mjs';
 /*
 item.flags.cat.alternateAttributes = {
     RollModifier: [
@@ -152,7 +152,9 @@ function armorClass(wrapped, rollData) {
             const value = rollUtils.rollDiceSync(replaced, {document: actor, options: {strict: true}}).total;
             if (value > acc.value) return {formula, value, source};
         } catch (e) {
-            Logging.addAttributeError(source, formula, e);
+            const prepWarning = actor._preparationWarnings.find(w => w.link === source?.uuid);
+            if (prepWarning) Logging.addAttributeError(source, formula, new foundry.data.validation.DataModelValidationError(prepWarning.message));
+            else Logging.addAttributeError(source, formula, e);
         }
         return acc;
     

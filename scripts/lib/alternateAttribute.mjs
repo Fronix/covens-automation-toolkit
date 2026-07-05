@@ -9,10 +9,12 @@ class AlternateAttribute {
 
     #type;
     #schema;
+    #getValueSummary;
     #allowedFlagHolders;
 
-    constructor({type, valueSchema, restrictionSchema, allowedFlagHolders}) {
+    constructor({type, valueSchema, restrictionSchema, allowedFlagHolders, getValueSummary}) {
         this.#type = type;
+        this.#getValueSummary = getValueSummary;
         this.#allowedFlagHolders = allowedFlagHolders;
         this.#schema = new fields.SchemaField({
             value: valueSchema,
@@ -83,6 +85,15 @@ class AlternateAttribute {
             else options.add(cleaned.value);
         }
         return options;
+    }
+
+    getValueSummary(values) {
+        if (this.#getValueSummary) return this.#getValueSummary(values);
+        if (!Array.isArray(values)) return values;
+        const choices = this.#schema.fields.value.element.choices;
+        const options = typeof choices === 'function' ? choices() : choices;
+        if (!options) return values.join(', ');
+        return values.map(v => options[v]).join(', ');
     }
 }
 
@@ -171,6 +182,7 @@ function buildAttributes() {
             initial: 'dex',
             required: true
         }),
+        getValueSummary: value => CONFIG.DND5E.abilities[value]?.label ?? value,
         allowedFlagHolders: ['feat'],
         restrictions: [
             Restrictions.Armor
