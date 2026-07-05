@@ -1,5 +1,5 @@
 import {Logging} from '../lib/_module.mjs';
-import {automationUtils} from '../utilities/_module.mjs';
+import {automationUtils, genericUtils} from '../utilities/_module.mjs';
 const fields = foundry.data.fields;
 export class RegisteredAnimations {
     #animationSchema;
@@ -56,6 +56,21 @@ export class RegisteredAnimations {
         if (value != undefined) return value;
         const animation = this.getAnimation(source, identifier);
         return animation?.config?.[key]?.default;
+    }
+    getEffectAnimationConfig(effect, type, key) {
+        const animationData = effect.flags.cat?.animation?.[type];
+        if (!animationData) return;
+        const value = animationData.config?.[key];
+        if (value != undefined) return value;
+        return this.getAnimationConfig(effect, animationData.source, animationData.identifier, key, {skipDocument: true});
+    }
+    getEffectAnimationConfigs(effect, type) {
+        const animationData = effect.flags.cat?.animation?.[type];
+        if (!animationData) return {};
+        const configs = genericUtils.deepClone(animationData.config ?? {});
+        const animation = this.getAnimation(animationData.source, animationData.identifier);
+        if (animation?.config) Object.keys(animation.config).forEach(key => configs[key] = this.getEffectAnimationConfig(effect, type, key));
+        return configs;
     }
 }
 class Animation {

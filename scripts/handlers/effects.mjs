@@ -1,3 +1,4 @@
+import {constants} from '../lib/_module.mjs';
 import {actorUtils, animationUtils, documentUtils, effectUtils, genericUtils, workflowUtils} from '../utilities/_module.mjs';
 async function addConditions(effect) {
     const conditions = effect.flags.cat?.conditions;
@@ -69,7 +70,8 @@ async function createAnimations(effect) {
     if (!animationData) return;
     const animation = animationUtils.getAnimation(animationData);
     if (!animation) return;
-    await animation.macros.create?.(effect, token, animationData.config);
+    const config = constants.animations.getEffectAnimationConfigs(effect, 'create');
+    await animation.macros.create?.(effect, token, config);
 }
 async function deleteAnimations(effect) {
     const actor = effectUtils.getActor(effect);
@@ -80,7 +82,8 @@ async function deleteAnimations(effect) {
     if (!animationData) return;
     const animation = animationUtils.getAnimation(animationData);
     if (!animation) return;
-    await animation.macros.delete?.(effect, token, animationData.config);
+    const config = constants.animations.getEffectAnimationConfigs(effect, 'delete');
+    await animation.macros.delete?.(effect, token, config);
 }
 async function specialDuration(workflow) {
     if (!workflow.token) return;
