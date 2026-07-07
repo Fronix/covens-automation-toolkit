@@ -150,7 +150,6 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     const documentData = sourceDocument.toObject();
     documentData._id = item.id;
     delete documentData.ownership;
-    delete documentData.flags.cat?.automation?.hash;
     const keepPaths = constants.getItemKeepPaths({spell: item.type === 'spell'});
     const oldDocumentData = item.toObject();
     keepPaths.forEach(field => {
