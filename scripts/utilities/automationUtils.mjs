@@ -109,6 +109,10 @@ async function setAllGenericConfigs(item, configData) {
 function getAutomationSources({packsOnly = false} = {}) {
     const settings = game.settings.get('cat', 'automationSources');
     const entries = Object.entries(settings).filter(([key, value]) => value.enabled && (!packsOnly || value.pack)).map(([key, value]) => [key, value.priority]);
+    // Registered module sources without a saved setting entry default to enabled (matching the settings menu display)
+    if (!packsOnly) constants.automations.sources.forEach(source => {
+        if (!(source in settings) && !source.includes('.')) entries.push([source, 50]);
+    });
     return entries.sort((a, b) => a[1] - b[1]).map(([key]) => key);
 }
 function getSourceDataSources(type, {packsOnly = false} = {}) {
