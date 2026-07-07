@@ -10,9 +10,19 @@ function getRollsTotal(rolls) {
 function getCriticalFormula(formula, document) {
     return new CONFIG.Dice.DamageRoll(formula, document.getRollData(), {isCritical: true}).formula;
 }
+async function replaceD20(roll, number) {
+    const rollData = foundry.utils.duplicate(roll.toJSON());
+    rollData.terms[0].results = rollData.terms[0].results.map(result => {
+        result.result = number;
+        return result;
+    });
+    rollData.total = (number - roll.terms[0].total) + roll.total;
+    return Roll.fromData(rollData);
+}
 export default {
     rollDiceSync,
     rollDice,
     getRollsTotal,
-    getCriticalFormula
+    getCriticalFormula,
+    replaceD20
 };
