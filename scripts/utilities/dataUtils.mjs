@@ -15,7 +15,7 @@ function setRules(documentData, rules) {
 function setIdentifier(documentData, identifier) {
     genericUtils.setProperty(documentData, 'flags.cat.identifier', identifier);
 }
-function buildEffectData(effectData, {macros, createAnimation, deleteAnimation, createAnimationOptions = {}, deleteAnimationOptions = {}, vae, unhideActivities} = {}) {
+function buildEffectData(effectData, {macros, createAnimation, deleteAnimation, createAnimationOptions = {}, deleteAnimationOptions = {}, rules, specialDuration, vae, unhideActivities} = {}) {
     if (macros?.length) {
         macros.forEach(macroGroup => {
             if (!macroGroup.macros.length) return;
@@ -26,6 +26,8 @@ function buildEffectData(effectData, {macros, createAnimation, deleteAnimation, 
             genericUtils.setProperty(effectData, 'flags.cat.macros.' + macroGroup.type, Array.from(uniqueMacros.values()));
         });
     }
+    if (rules) setRules(effectData, rules);
+    if (specialDuration?.length) genericUtils.setProperty(effectData, 'flags.cat.specialDuration', specialDuration);
     if (vae) genericUtils.setProperty(effectData, 'flags.cat.vae.buttons', vae);
     if (unhideActivities) genericUtils.setProperty(effectData, 'flags.cat.unhideActivities', unhideActivities);
     if (createAnimation) genericUtils.setProperty(effectData, 'flags.cat.animation.create', {...createAnimation, config: createAnimationOptions});
