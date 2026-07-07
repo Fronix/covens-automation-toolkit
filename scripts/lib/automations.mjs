@@ -140,7 +140,7 @@ export class RegisteredAutomations {
     getAutomationByIdentifier(identifier, {rules = 'all', source = 'all', multiple = false, monsterIdentifier, type, excludeSources = []} = {}) {
         const predicate = automation => {
             if (automation.identifier !== identifier) return false;
-            if (rules !== 'all' && automation.rules !== rules) return false;
+            if (rules !== 'all' && automation.rules !== 'all' && automation.rules !== rules) return false;
             if (source !== 'all' && automation.source !== source) return false;
             if (excludeSources.includes(automation.source)) return false;
             if (monsterIdentifier && monsterIdentifier !== automation.monsterIdentifier) return false;
