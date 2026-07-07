@@ -2162,3 +2162,70 @@ cat-combobox {
     border-color: var(--cat-border-focus);
     background: var(--cat-bg-hover);
 }
+
+/* Actor medkit: automation overview */
+.cat-automation-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--cat-space-sm) var(--cat-space-md);
+    margin-bottom: var(--cat-space-sm);
+    font-size: 0.9em;
+}
+
+.cat-automation-summary span {
+    white-space: nowrap;
+}
+
+.cat-automation-overview {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    max-height: 21rem;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.cat-automation-row {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr auto auto auto;
+    gap: var(--cat-space-sm);
+    align-items: center;
+    padding: 2px 4px;
+    border-radius: var(--cat-radius-sm);
+    background: rgb(255 255 255 / 3%);
+}
+
+.cat-automation-row img {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: var(--cat-radius-sm);
+    object-fit: cover;
+}
+
+.cat-automation-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cat-automation-detail {
+    color: var(--cat-text-muted);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.cat-automation-row button.icon {
+    flex: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    line-height: 1;
+}
+
+.cat-automation-empty {
+    margin: 0;
+    color: var(--cat-text-muted);
+    font-size: 0.9em;
+}

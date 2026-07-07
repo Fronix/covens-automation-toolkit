@@ -364,6 +364,16 @@
         },
         "Ability": {
           "All": "All"
+        },
+        "Overview": {
+          "Legend": "Automation Overview",
+          "Outdated": "outdated",
+          "Available": "available",
+          "UpToDate": "up to date",
+          "NoAutomation": "no automation",
+          "Versions": "v{before} → v{after}",
+          "Open": "Open item medkit",
+          "Empty": "No items on this actor match a registered automation."
         }
       },
       "Activity": {

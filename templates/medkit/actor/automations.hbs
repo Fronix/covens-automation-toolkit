@@ -8,4 +8,28 @@
             {{localize "CAT.MEDKIT.MassApply.Button"}}
         </button>
     </fieldset>
+    <fieldset data-section="actor-automation-overview">
+        <legend>{{localize "CAT.MEDKIT.Actor.Overview.Legend"}}</legend>
+        <div class="cat-automation-summary">
+            <span data-medkit-status="outdated"><i class="fa-solid fa-circle-exclamation"></i> {{overview.counts.outdated}} {{localize "CAT.MEDKIT.Actor.Overview.Outdated"}}</span>
+            <span data-medkit-status="available"><i class="fa-solid fa-circle-plus"></i> {{overview.counts.available}} {{localize "CAT.MEDKIT.Actor.Overview.Available"}}</span>
+            <span data-medkit-status="up-to-date"><i class="fa-solid fa-circle-check"></i> {{overview.counts.current}} {{localize "CAT.MEDKIT.Actor.Overview.UpToDate"}}</span>
+            <span><i class="fa-solid fa-circle-question"></i> {{overview.counts.none}} {{localize "CAT.MEDKIT.Actor.Overview.NoAutomation"}}</span>
+        </div>
+        {{#if overview.rows.length}}
+        <ul class="cat-automation-overview">
+            {{#each overview.rows}}
+            <li class="cat-automation-row">
+                <img src="{{this.img}}" alt="" loading="lazy">
+                <span class="cat-automation-name">{{this.name}}</span>
+                {{#if this.detail}}<span class="cat-automation-detail">{{this.detail}}</span>{{/if}}
+                <span data-medkit-status="{{this.status}}" data-tooltip="{{localize this.label}}"><i class="{{this.icon}}"></i></span>
+                <button type="button" class="icon fa-solid fa-kit-medical" data-action="openItemMedkit" data-item-id="{{this.id}}" data-tooltip="{{localize 'CAT.MEDKIT.Actor.Overview.Open'}}"></button>
+            </li>
+            {{/each}}
+        </ul>
+        {{else}}
+        <p class="cat-automation-empty">{{localize "CAT.MEDKIT.Actor.Overview.Empty"}}</p>
+        {{/if}}
+    </fieldset>
 </section>

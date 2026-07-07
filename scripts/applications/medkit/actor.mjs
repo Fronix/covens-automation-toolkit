@@ -1,4 +1,7 @@
 import MedkitApp from './base.mjs';
+import ItemMedkit from './item.mjs';
+import {constants} from '../../lib/_module.mjs';
+import {automationUtils, documentUtils} from '../../utilities/_module.mjs';
 const {fields} = foundry.data;
 
 export default class ActorMedkit extends MedkitApp {
@@ -8,7 +11,8 @@ export default class ActorMedkit extends MedkitApp {
         actions: {
             toggleCR: ActorMedkit.#toggleCR,
             toggleCV: ActorMedkit.#toggleCV,
-            removeCondition: ActorMedkit.#removeCondition
+            removeCondition: ActorMedkit.#removeCondition,
+            openItemMedkit: ActorMedkit.#openItemMedkit
         }
     };
 
@@ -36,6 +40,57 @@ export default class ActorMedkit extends MedkitApp {
 
     _getMassApplyItems() {
         return Array.from(this.document.items ?? []);
+    }
+
+    // One row per item that has (or could have) an automation, mirroring what massApply would touch.
+    #prepareAutomationOverview() {
+        const rowMeta = {
+            [constants.automationStatus.OUTDATED]: {status: constants.MEDKIT_STATUSES.OUTDATED, label: 'CAT.MEDKIT.STATUSES.Outdated', icon: 'fa-solid fa-circle-exclamation', order: 0},
+            [constants.automationStatus.AVAILABLE]: {status: constants.MEDKIT_STATUSES.AVAILABLE, label: 'CAT.MEDKIT.STATUSES.Available', icon: 'fa-solid fa-circle-plus', order: 1},
+            [constants.automationStatus.CONFIGURABLE]: {status: constants.MEDKIT_STATUSES.CONFIGURABLE, label: 'CAT.MEDKIT.STATUSES.Configurable', icon: 'fa-solid fa-circle-check', order: 2},
+            [constants.automationStatus.GENERIC]: {status: constants.MEDKIT_STATUSES.CONFIGURABLE, label: 'CAT.MEDKIT.STATUSES.Generic', icon: 'fa-solid fa-circle-check', order: 2},
+            [constants.automationStatus.UP_TO_DATE]: {status: constants.MEDKIT_STATUSES.UP_TO_DATE, label: 'CAT.MEDKIT.STATUSES.UpToDate', icon: 'fa-solid fa-circle-check', order: 3}
+        };
+        const rows = [];
+        const counts = {outdated: 0, available: 0, current: 0, none: 0};
+        for (const item of this.document.items ?? []) {
+            if (item.flags.cat?.ignoreItem) continue;
+            let status = automationUtils.getAutomationStatus(item);
+            let detail;
+            switch (status) {
+                case constants.automationStatus.AVAILABLE: {
+                    const available = automationUtils.getAvailableAutomations(item, {excludeSources: constants.massApplyExcludeSources});
+                    if (!available.length) {
+                        status = constants.automationStatus.UNAVAILABLE;
+                        break;
+                    }
+                    detail = [...new Set(available.map(automation => constants.automations.getSourceName(automation.source)))].join(', ');
+                    counts.available++;
+                    break;
+                }
+                case constants.automationStatus.OUTDATED: {
+                    const before = documentUtils.getVersion(item);
+                    const after = automationUtils.getCurrentAutomation(item)?.version;
+                    if (before && after && before !== after) detail = _loc('CAT.MEDKIT.Actor.Overview.Versions', {before, after});
+                    counts.outdated++;
+                    break;
+                }
+                case constants.automationStatus.UP_TO_DATE:
+                case constants.automationStatus.CONFIGURABLE:
+                case constants.automationStatus.GENERIC:
+                    detail = documentUtils.getVersion(item);
+                    counts.current++;
+                    break;
+            }
+            const meta = rowMeta[status];
+            if (!meta) {
+                counts.none++;
+                continue;
+            }
+            rows.push({id: item.id, name: item.name, img: item.img, detail, ...meta});
+        }
+        rows.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
+        return {rows, counts};
     }
 
     // Per-condition flag values are comma-separated strings: 'true' (all saves) or 'wis,cha' (subset).
@@ -82,7 +137,14 @@ export default class ActorMedkit extends MedkitApp {
             context[`conditionChoices${flagKey}`] = sortedTypes.map(t => ({value: t.key, label: t.label, selected: pickedSet.has(t.key)}));
             context[`${flagKey.toLowerCase()}ConditionRows`] = this.#buildConditionRows(flagKey, picked, sortedTypes);
         }
+        context.overview = this.#prepareAutomationOverview();
         return context;
+    }
+
+    /** @this {ActorMedkit} */
+    static #openItemMedkit(_event, target) {
+        const item = this.document.items.get(target.dataset.itemId);
+        if (item) new ItemMedkit({document: item}).render({force: true});
     }
 
     // Add/remove condition keys via multi-combobox; default new entries to 'true' (all saves).
