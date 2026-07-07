@@ -1,33 +1,26 @@
-import {genericUtils, queryUtils} from './_module.mjs';
+import {dataUtils, queryUtils} from './_module.mjs';
 function getCastData(effect) {
     return effect.flags.cat?.castData ?? effect.flags['midi-qol']?.castData;
 }
 async function createEffects(document, effectDatas, {forceGM = false, macros, effectOptions, createAnimation, deleteAnimation, createAnimationOptions = {}, deleteAnimationOptions = {}, vae, unhideActivities} = {}) {
-    if (macros?.length) {
-        effectDatas.forEach(effectData => {
-            const targetIdentifier = effectData.flags?.cat?.identifier ?? effectData.name?.slugify();
-            if (!targetIdentifier) return;
+    const data = effectDatas.map(e => {
+        const targetIdentifier = e.flags?.cat?.identifier ?? e.name?.slugify();
+        let thisMacros = [];
+        if (targetIdentifier && macros?.length) {
             macros.forEach(macroGroup => {
                 const applicableMacros = macroGroup.macros.filter(m => !m.effectIdentifier || m.effectIdentifier === targetIdentifier).map(({effectIdentifier, ...rest}) => rest);
                 if (!applicableMacros.length) return;
-                const existingMacros = effectData.flags?.cat?.macros?.[macroGroup.type] ?? [];
-                const combinedMacros = [...existingMacros, ...applicableMacros];
-                const uniqueMacros = new Map();
-                combinedMacros.forEach(macro => uniqueMacros.set(macro.source + '|' + macro.identifier + '|' + macro.rules, macro));
-                genericUtils.setProperty(effectData, 'flags.cat.macros.' + macroGroup.type, Array.from(uniqueMacros.values()));
+                thisMacros.push({type: macroGroup.type, macros: applicableMacros});
             });
-        });
-    }
-    if (createAnimation) effectDatas.forEach(effectData => genericUtils.setProperty(effectData, 'flags.cat.animation.create', {...createAnimation, config: createAnimationOptions}));
-    if (deleteAnimation) effectDatas.forEach(effectData => genericUtils.setProperty(effectData, 'flags.cat.animation.delete', {...deleteAnimation, config: deleteAnimationOptions}));
-    if (vae) effectDatas.forEach(effectData => genericUtils.setProperty(effectData, 'flags.cat.vae.buttons', vae));
-    if (unhideActivities) effectDatas.forEach(effectData => genericUtils.setProperty(effectData, 'flags.cat.unhideActivities', unhideActivities));
+        }
+        return dataUtils.buildEffectData(e, {macros: thisMacros, createAnimation, deleteAnimation, createAnimationOptions, deleteAnimationOptions, vae, unhideActivities});
+    });
     const hasPermission = queryUtils.hasPermission(document, game.user.id);
     let effects;
     if (hasPermission && !forceGM) {
-        effects = await document.createEmbeddedDocuments('ActiveEffect', effectDatas);
+        effects = await document.createEmbeddedDocuments('ActiveEffect', data);
     } else {
-        const uuids = await queryUtils.query('createEffects', queryUtils.gmUser(), {uuid: document.uuid, effectDatas, effectOptions});
+        const uuids = await queryUtils.query('createEffects', queryUtils.gmUser(), {uuid: document.uuid, effectDatas: data, effectOptions});
         if (!uuids) return;
         effects = (await Promise.all(uuids.map(async uuid => fromUuid(uuid)))).filter(i => i);
     }
