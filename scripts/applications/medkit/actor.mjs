@@ -1,7 +1,7 @@
 import MedkitApp from './base.mjs';
 import ItemMedkit from './item.mjs';
 import {constants} from '../../lib/_module.mjs';
-import {automationUtils, documentUtils} from '../../utilities/_module.mjs';
+import {automationUtils, dialogUtils, documentUtils} from '../../utilities/_module.mjs';
 const {fields} = foundry.data;
 
 export default class ActorMedkit extends MedkitApp {
@@ -12,7 +12,8 @@ export default class ActorMedkit extends MedkitApp {
             toggleCR: ActorMedkit.#toggleCR,
             toggleCV: ActorMedkit.#toggleCV,
             removeCondition: ActorMedkit.#removeCondition,
-            openItemMedkit: ActorMedkit.#openItemMedkit
+            openItemMedkit: ActorMedkit.#openItemMedkit,
+            alignRules: ActorMedkit.#alignRules
         }
     };
 
@@ -145,6 +146,23 @@ export default class ActorMedkit extends MedkitApp {
     static #openItemMedkit(_event, target) {
         const item = this.document.items.get(target.dataset.itemId);
         if (item) new ItemMedkit({document: item}).render({force: true});
+    }
+
+    // Stamp every item's source ruleset with the world's rules version so automations
+    // registered for the active ruleset match items imported/created under the other one.
+    /** @this {ActorMedkit} */
+    static async #alignRules() {
+        const worldRules = game.settings.get('dnd5e', 'rulesVersion') === 'legacy' ? '2014' : '2024';
+        const items = Array.from(this.document.items).filter(item => item.system?.source && item.system.source.rules !== worldRules);
+        if (!items.length) {
+            ui.notifications.info(_loc('CAT.MEDKIT.Actor.AlignRules.NoneNeeded', {rules: worldRules}));
+            return;
+        }
+        const confirmed = await dialogUtils.confirm('CAT.MEDKIT.Actor.AlignRules.ConfirmTitle', _loc('CAT.MEDKIT.Actor.AlignRules.ConfirmPrompt', {count: items.length, rules: worldRules}));
+        if (!confirmed) return;
+        await documentUtils.updateEmbeddedDocuments(this.document, 'Item', items.map(item => ({_id: item.id, 'system.source.rules': worldRules})));
+        ui.notifications.info(_loc('CAT.MEDKIT.Actor.AlignRules.Done', {count: items.length, rules: worldRules}));
+        this.render();
     }
 
     // Add/remove condition keys via multi-combobox; default new entries to 'true' (all saves).

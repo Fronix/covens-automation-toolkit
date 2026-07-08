@@ -374,6 +374,14 @@
           "Versions": "v{before} → v{after}",
           "Open": "Open item medkit",
           "Empty": "No items on this actor match a registered automation."
+        },
+        "AlignRules": {
+          "Button": "Align Item Rules",
+          "Tooltip": "Set every item's source ruleset to the world's rules version so automations for the active ruleset match.",
+          "ConfirmTitle": "Align item rules?",
+          "ConfirmPrompt": "Set the source ruleset of {count} items to {rules}? Items marked for the other ruleset will stop matching its automations.",
+          "Done": "Set {count} items to the {rules} ruleset.",
+          "NoneNeeded": "All items already use the {rules} ruleset."
         }
       },
       "Activity": {
