@@ -10,6 +10,12 @@ function getRollsTotal(rolls) {
 function getCriticalFormula(formula, document) {
     return new CONFIG.Dice.DamageRoll(formula, document.getRollData(), {isCritical: true}).formula;
 }
+async function addToRoll(roll, formula, {rollData} = {}) {
+    const bonusRoll = await new Roll(String(formula), rollData).evaluate();
+    const newRoll = MidiQOL.addRollTo(roll, bonusRoll);
+    newRoll.data = roll.data;
+    return newRoll;
+}
 async function replaceD20(roll, number) {
     const rollData = foundry.utils.duplicate(roll.toJSON());
     rollData.terms[0].results = rollData.terms[0].results.map(result => {
