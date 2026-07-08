@@ -151,6 +151,25 @@ async function slideToken(token, {sourceToken, distance = 5, ray, action = 'catF
         }
     });
 }
+function getLightLevel(token) {
+    const object = token.object ?? token;
+    if (object.document.parent.environment.globalLight.enabled) return 'bright';
+    const c = Object.values(object.center);
+    const lights = canvas.effects.lightSources.filter(src => !(src instanceof foundry.canvas.sources.GlobalLightSource) && src.shape.contains(...c));
+    if (!lights.length) return 'dark';
+    const inBright = lights.some(light => {
+        const {data: {x, y}, ratio} = light;
+        const bright = foundry.canvas.geometry.ClockwiseSweepPolygon.create({x, y}, {
+            type: 'light',
+            boundaryShapes: [new PIXI.Circle(x, y, ratio * light.shape.config.radius)]
+        });
+        return bright.contains(...c);
+    });
+    return inBright ? 'bright' : 'dim';
+}
+function canSense(sourceToken, targetToken, senseModes = ['all']) {
+    return MidiQOL.canSense(sourceToken.object ?? sourceToken, targetToken.object ?? targetToken, senseModes);
+}
 export default {
     getSavedCastData,
     getDistance,
@@ -161,5 +180,7 @@ export default {
     teleportToken,
     displaceToken,
     slideToken,
-    moveToken
+    moveToken,
+    getLightLevel,
+    canSense
 };
