@@ -30,5 +30,6 @@ export default {
     rollDice,
     getRollsTotal,
     getCriticalFormula,
+    addToRoll,
     replaceD20
 };
