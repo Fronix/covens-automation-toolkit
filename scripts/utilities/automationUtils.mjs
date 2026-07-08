@@ -128,16 +128,17 @@ function getSourceDataSources(type, {packsOnly = false} = {}) {
     const entries = Object.entries(settings).filter(([key, value]) => value.enabled && (!packsOnly || value.pack)).map(([key, value]) => [key, value.priority]);
     return entries.sort((a, b) => a[1] - b[1]).map(([key]) => key);
 }
-function getAppliedOrPreferredAutomation(item) {
-    const currentAutomation = getCurrentAutomation(item);
-    if (currentAutomation) return currentAutomation;
-    const allAutomations = getAvailableAutomations(item);
+function getPreferredAutomation(item, {excludeSources = []} = {}) {
+    const allAutomations = getAvailableAutomations(item, {excludeSources});
     if (!allAutomations.length) return;
-    const sources = getAutomationSources();
-    for (const source of sources) {
+    for (const source of getAutomationSources()) {
         const match = allAutomations.find(automation => automation.source === source);
         if (match) return match;
     }
+    return allAutomations[0];
+}
+function getAppliedOrPreferredAutomation(item) {
+    return getCurrentAutomation(item) ?? getPreferredAutomation(item);
 }
 async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet} = {}) {
     let automation;
@@ -299,6 +300,7 @@ export default {
     setConfigValues,
     setGenericConfigValues,
     getAutomationSources,
+    getPreferredAutomation,
     getAppliedOrPreferredAutomation,
     updateItem,
     updateScales,

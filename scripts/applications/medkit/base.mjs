@@ -997,15 +997,20 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         rawItems.forEach(visit);
         if (cycleDetected) ui.notifications.warn('CAT.MEDKIT.MassApply.CycleWarning');
         for (const item of sortedItems) {
-            const isApplied = automationUtils.getCurrentAutomation(item) || automationUtils.getStoredHash(item);
-            let needsUpdate = false;
+            const current = automationUtils.getCurrentAutomation(item);
+            const isApplied = current || automationUtils.getStoredHash(item);
+            const preferred = automationUtils.getPreferredAutomation(item, {excludeSources: constants.massApplyExcludeSources});
             if (isApplied) {
-                needsUpdate = !automationUtils.isUpToDate(item);
-            } else {
-                const available = automationUtils.getAvailableAutomations(item, {excludeSources: constants.massApplyExcludeSources});
-                if (available?.length) needsUpdate = true;
+                // Switch items applied from a lower priority source to the preferred one,
+                // otherwise refresh outdated ones from their current source.
+                if (preferred && current && preferred.source !== current.source) {
+                    await automationUtils.updateItem(item, {source: preferred.source});
+                } else if (!automationUtils.isUpToDate(item)) {
+                    await automationUtils.updateItem(item);
+                }
+            } else if (preferred) {
+                await automationUtils.updateItem(item, {source: preferred.source});
             }
-            if (needsUpdate) await automationUtils.updateItem(item);
         }
         ui.notifications.info('CAT.MEDKIT.MassApply.Done');
         this.render();

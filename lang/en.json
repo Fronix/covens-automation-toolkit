@@ -17,9 +17,9 @@
       "MassApply": {
         "Label": "Mass Apply / Update",
         "Button": "Mass Apply / Update",
-        "Tooltip": "Apply / update automations for every item under this document.",
+        "Tooltip": "Apply / update automations for every item under this document, switching items to the highest priority source.",
         "ConfirmTitle": "Mass apply automations?",
-        "ConfirmPrompt": "Apply registered automations to every item under this document? This rewrites their data and cannot be undone.",
+        "ConfirmPrompt": "Apply registered automations to every item under this document? Items automated by a lower priority source are switched to the highest priority one. This rewrites their data and cannot be undone.",
         "Done": "Mass apply complete.",
         "CompendiumPending": "Compendium mass apply isn't wired yet - waiting on a pack-aware updater.",
         "CycleWarning": "Circular dependency detected among items. Some updates may occur out of sequence!"
