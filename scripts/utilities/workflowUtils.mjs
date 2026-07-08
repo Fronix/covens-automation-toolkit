@@ -156,6 +156,12 @@ function setWorkflowProperty(workflow, path, value) {
 function getWorkflowProperty(workflow, path) {
     return genericUtils.getProperty(workflow, 'cat.' + path);
 }
+async function applyDamage(tokens, value, damageType) {
+    return await MidiQOL.applyTokenDamage([{damage: value, type: damageType}], value, new Set(tokens));
+}
+function getDamageTypes(damageRolls) {
+    return new Set(damageRolls.map(roll => roll.options.type));
+}
 async function bonusDamage(workflow, formula, {ignoreCrit = false, damageType = workflow.defaultDamageType} = {}) {
     formula = String(formula);
     if (workflow.isCritical && !ignoreCrit) formula = rollUtils.getCriticalFormula(formula, workflow.activity);
