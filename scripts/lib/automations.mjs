@@ -215,11 +215,11 @@ export class RegisteredAutomations {
      */
     async registerAutomationCompendium(pack, {configs2014 = {}, configs2024 = {}, configsAll = {}, versions2014 = {}, versions2024 = {}, versionsAll = {}, rules = {}, source, notes2014 = {}, notes2024 = {}, notesAll = {}, scales2014 = {}, scales2024 = {}, scalesAll = {}, typesAll = {}, types2014 = {}, types2024 = {}} = {}) {
         const fields = ['system.identifier', 'system.source.rules', 'flags.cat.automation.version', 'type'];
-        let index = await pack.getIndex({fields});
+        let index = await this.#getIndexSafely(pack, fields);
         // A concurrent getIndex from another module (e.g. the compendium browser preloading at
         // ready) can win the in-flight request without our fields; retry once to get them.
         if (pack.metadata.type === 'Item' && index.size && !index.find(document => document.system?.source !== undefined)) {
-            index = await pack.getIndex({fields});
+            index = await this.#getIndexSafely(pack, fields);
         }
         source ??= pack.metadata.packageName;
         const documentType = pack.metadata.type;
@@ -235,6 +235,20 @@ export class RegisteredAutomations {
         });
         Logging.groupEnd();
         return results;
+    }
+
+    // Index requests fired during world load can be dropped under heavy startup socket
+    // traffic and never resolve; race a timeout and retry instead of hanging forever.
+    async #getIndexSafely(pack, fields, {timeout = 10000, attempts = 3} = {}) {
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+            const index = await Promise.race([
+                pack.getIndex({fields}),
+                new Promise(resolve => setTimeout(() => resolve(null), timeout))
+            ]);
+            if (index) return index;
+            Logging.addEntry('WARNING', 'Index request for ' + pack.metadata.id + ' timed out (attempt ' + attempt + '/' + attempts + ')', {force: true});
+        }
+        throw new Error('Unable to build index for compendium ' + pack.metadata.id);
     }
 
     #registerIndexEntry(document, {documentType, source, configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, typesAll, types2014, types2024}) {
@@ -299,16 +313,29 @@ export class RegisteredAutomations {
         Logging.group('Automation Module Registered: ' + module.title);
         const itemPacks = module.packs.filter(pack => pack.type === 'Item' && !ignoredPackIds.includes(pack.id));
         if (!itemPacks.size) return;
-        const results = await Promise.all(itemPacks.map(async data => {
+        // Sequential on purpose: a burst of concurrent index requests during world load can be
+        // dropped under startup socket traffic and never resolve, silently losing packs.
+        const results = [];
+        let registered = 0;
+        let failed = 0;
+        for (const data of itemPacks) {
             const pack = game.packs.get(data.id);
-            if (!pack) return false;
-            // Isolate pack failures so one bad pack (or a racing index request) can't abort the rest
-            return await this.registerAutomationCompendium(pack, {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll}).catch(error => {
+            if (!pack) {
+                results.push(false);
+                continue;
+            }
+            try {
+                const packResults = await this.registerAutomationCompendium(pack, {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll});
+                registered += packResults.filter(Boolean).length;
+                results.push(packResults);
+            } catch (error) {
+                failed++;
                 Logging.addRegistrationError({pack: data.id}, 'automation', error);
-                return false;
-            });
-        }));
+                results.push(false);
+            }
+        }
         Logging.groupEnd();
+        Logging.addEntry(failed ? 'WARNING' : 'INFO', 'Automation Module ' + module.title + ': registered ' + registered + ' automations from ' + itemPacks.size + ' packs' + (failed ? ' (' + failed + ' packs FAILED, see cat.lib.Logging.registrationErrors)' : ''), {force: failed > 0});
         return results;
     }
 
