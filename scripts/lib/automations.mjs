@@ -237,8 +237,35 @@ export class RegisteredAutomations {
         return results;
     }
 
-    // Index requests fired during world load can be dropped under heavy startup socket
-    // traffic and never resolve; race a timeout and retry instead of hanging forever.
+    // Packs whose index requests time out during a busy world load (other modules doing
+    // heavy compendium work) are retried in deferred rounds once the server calms down.
+    async #retryFailedPacks(module, packIds, options, round = 1) {
+        const maxRounds = 3;
+        await new Promise(resolve => setTimeout(resolve, 30000 * round));
+        const stillFailing = [];
+        for (const packId of packIds) {
+            const pack = game.packs.get(packId);
+            if (!pack) continue;
+            try {
+                // Scrub any partial registration from an earlier attempt before re-registering
+                this.automations = this.automations.filter(automation => !automation.uuid.startsWith('Compendium.' + packId + '.'));
+                const packResults = await this.registerAutomationCompendium(pack, options);
+                Logging.addEntry('INFO', 'Recovered automation registration for ' + packId + ' (' + packResults.filter(Boolean).length + ' automations, retry round ' + round + ')', {force: true});
+            } catch (error) {
+                stillFailing.push(packId);
+                Logging.addRegistrationError({pack: packId, retryRound: round}, 'automation', error);
+            }
+        }
+        if (!stillFailing.length) return;
+        if (round >= maxRounds) {
+            Logging.addEntry('ERROR', 'Automation registration permanently failed for: ' + stillFailing.join(', '), {force: true});
+            return;
+        }
+        this.#retryFailedPacks(module, stillFailing, options, round + 1);
+    }
+
+    // Index requests fired under heavy startup socket traffic can stall for a long time;
+    // race a timeout and retry instead of hanging forever.
     async #getIndexSafely(pack, fields, {timeout = 10000, attempts = 3} = {}) {
         for (let attempt = 1; attempt <= attempts; attempt++) {
             const index = await Promise.race([
@@ -315,9 +342,10 @@ export class RegisteredAutomations {
         if (!itemPacks.size) return;
         // Sequential on purpose: a burst of concurrent index requests during world load can be
         // dropped under startup socket traffic and never resolve, silently losing packs.
+        const options = {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll};
         const results = [];
+        const failedPackIds = [];
         let registered = 0;
-        let failed = 0;
         for (const data of itemPacks) {
             const pack = game.packs.get(data.id);
             if (!pack) {
@@ -325,17 +353,18 @@ export class RegisteredAutomations {
                 continue;
             }
             try {
-                const packResults = await this.registerAutomationCompendium(pack, {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll});
+                const packResults = await this.registerAutomationCompendium(pack, options);
                 registered += packResults.filter(Boolean).length;
                 results.push(packResults);
             } catch (error) {
-                failed++;
+                failedPackIds.push(data.id);
                 Logging.addRegistrationError({pack: data.id}, 'automation', error);
                 results.push(false);
             }
         }
         Logging.groupEnd();
-        Logging.addEntry(failed ? 'WARNING' : 'INFO', 'Automation Module ' + module.title + ': registered ' + registered + ' automations from ' + itemPacks.size + ' packs' + (failed ? ' (' + failed + ' packs FAILED, see cat.lib.Logging.registrationErrors)' : ''), {force: failed > 0});
+        Logging.addEntry(failedPackIds.length ? 'WARNING' : 'INFO', 'Automation Module ' + module.title + ': registered ' + registered + ' automations from ' + itemPacks.size + ' packs' + (failedPackIds.length ? ' (' + failedPackIds.length + ' packs failed, retrying later)' : ''), {force: failedPackIds.length > 0});
+        if (failedPackIds.length) this.#retryFailedPacks(module, failedPackIds, options);
         return results;
     }
 
