@@ -156,6 +156,24 @@ function setWorkflowProperty(workflow, path, value) {
 function getWorkflowProperty(workflow, path) {
     return genericUtils.getProperty(workflow, 'cat.' + path);
 }
+function modifyDamageAppliedFlat(ditem, modificationAmount, {type = 'none', multiplier = 1} = {}) {
+    if (modificationAmount < 0) modificationAmount = Math.max(modificationAmount, -ditem.hpDamage - ditem.tempDamage);
+    ditem.damageDetail.push({
+        value: modificationAmount,
+        active: {multiplier},
+        type
+    });
+    ditem.rawDamageDetail?.push({
+        value: modificationAmount,
+        type
+    });
+    const actualTotal = ditem.totalDamage + modificationAmount;
+    ditem.totalDamage = actualTotal;
+    const newTempHP = ditem.oldTempHP - actualTotal;
+    ditem.newTempHP = Math.max(newTempHP, 0);
+    ditem.newHP = Math.clamp(ditem.oldHP + Math.min(0, newTempHP), 0, ditem.oldHP);
+    ditem.hpDamage = ditem.oldHP - ditem.newHP;
+}
 async function applyDamage(tokens, value, damageType) {
     return await MidiQOL.applyTokenDamage([{damage: value, type: damageType}], value, new Set(tokens));
 }
@@ -183,5 +201,6 @@ export default {
     getWorkflowProperty,
     applyDamage,
     getDamageTypes,
+    modifyDamageAppliedFlat,
     bonusDamage
 };
