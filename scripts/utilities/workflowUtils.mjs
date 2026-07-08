@@ -181,5 +181,7 @@ export default {
     negateDamageItemDamage,
     setWorkflowProperty,
     getWorkflowProperty,
+    applyDamage,
+    getDamageTypes,
     bonusDamage
 };
