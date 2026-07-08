@@ -214,57 +214,72 @@ export class RegisteredAutomations {
      * @param {string} [options.source]                                     The source of the automations
      */
     async registerAutomationCompendium(pack, {configs2014 = {}, configs2024 = {}, configsAll = {}, versions2014 = {}, versions2024 = {}, versionsAll = {}, rules = {}, source, notes2014 = {}, notes2024 = {}, notesAll = {}, scales2014 = {}, scales2024 = {}, scalesAll = {}, typesAll = {}, types2014 = {}, types2024 = {}} = {}) {
-        const index = await pack.getIndex({fields: ['system.identifier', 'system.source.rules', 'flags.cat.automation.version', 'type']});
+        const fields = ['system.identifier', 'system.source.rules', 'flags.cat.automation.version', 'type'];
+        let index = await pack.getIndex({fields});
+        // A concurrent getIndex from another module (e.g. the compendium browser preloading at
+        // ready) can win the in-flight request without our fields; retry once to get them.
+        if (pack.metadata.type === 'Item' && index.size && !index.find(document => document.system?.source !== undefined)) {
+            index = await pack.getIndex({fields});
+        }
         source ??= pack.metadata.packageName;
         const documentType = pack.metadata.type;
         Logging.group('Automation Compendium Registered: ' + pack.metadata.label + ' (' + pack.metadata.packageName + ')');
         //Logging.addEntry('DEBUG', 'Automation Compendium Registered: ' + pack.metadata.label + ' from ' + pack.metadata.packageName);
         const results = index.map(document => {
-            const identifier = documentUtils.getIdentifier(document, {documentType});
-            const rule = rules[identifier] ?? documentUtils.getRules(document, {documentType});
-            let config;
-            let notes;
-            let scales;
-            let type;
-            let version;
-            switch (rule) {
-                case '2014':
-                    config = configs2014[identifier] ?? configsAll[identifier];
-                    notes = notes2014[identifier] ?? notesAll[identifier];
-                    scales = scales2014[identifier] ?? scalesAll[identifier];
-                    type = types2014[identifier] ?? typesAll[identifier];
-                    version = versions2014[identifier] ?? documentUtils.getVersion(document) ?? '0';
-                    break;
-                case '2024':
-                    config = configs2024[identifier] ?? configsAll[identifier];
-                    notes = notes2024[identifier] ?? notesAll[identifier];
-                    scales = scales2024[identifier] ?? scalesAll[identifier];
-                    type = types2024[identifier] ?? typesAll[identifier];
-                    version = versions2024[identifier] ?? documentUtils.getVersion(document) ?? '0';
-                    break;
-                default:
-                    config = configsAll[identifier];
-                    notes = notesAll[identifier];
-                    scales = scalesAll[identifier];
-                    type = typesAll[identifier];
-                    version = versionsAll[identifier] ?? documentUtils.getVersion(document) ?? '0';
-                    break;
+            try {
+                return this.#registerIndexEntry(document, {documentType, source, configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, typesAll, types2014, types2024});
+            } catch (error) {
+                Logging.addRegistrationError({pack: pack.metadata.id, document: document.name}, 'automation', error);
+                return false;
             }
-            const data = {
-                source,
-                rules: rule,
-                identifier,
-                version,
-                uuid: document.uuid,
-                config,
-                notes,
-                scales,
-                type: type ?? document.type
-            };
-            return this.registerAutomation(data);
         });
         Logging.groupEnd();
         return results;
+    }
+
+    #registerIndexEntry(document, {documentType, source, configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, typesAll, types2014, types2024}) {
+        const identifier = documentUtils.getIdentifier(document, {documentType});
+        const rule = rules[identifier] ?? documentUtils.getRules(document, {documentType});
+        let config;
+        let notes;
+        let scales;
+        let type;
+        let version;
+        switch (rule) {
+            case '2014':
+                config = configs2014[identifier] ?? configsAll[identifier];
+                notes = notes2014[identifier] ?? notesAll[identifier];
+                scales = scales2014[identifier] ?? scalesAll[identifier];
+                type = types2014[identifier] ?? typesAll[identifier];
+                version = versions2014[identifier] ?? documentUtils.getVersion(document) ?? '0';
+                break;
+            case '2024':
+                config = configs2024[identifier] ?? configsAll[identifier];
+                notes = notes2024[identifier] ?? notesAll[identifier];
+                scales = scales2024[identifier] ?? scalesAll[identifier];
+                type = types2024[identifier] ?? typesAll[identifier];
+                version = versions2024[identifier] ?? documentUtils.getVersion(document) ?? '0';
+                break;
+            default:
+                config = configsAll[identifier];
+                notes = notesAll[identifier];
+                scales = scalesAll[identifier];
+                type = typesAll[identifier];
+                version = versionsAll[identifier] ?? documentUtils.getVersion(document) ?? '0';
+                break;
+        }
+        const data = {
+            source,
+            rules: rule,
+            identifier,
+            version,
+            uuid: document.uuid,
+            config,
+            notes,
+            scales,
+            type: type ?? document.type
+        };
+        return this.registerAutomation(data);
     }
 
     /**
@@ -287,7 +302,11 @@ export class RegisteredAutomations {
         const results = await Promise.all(itemPacks.map(async data => {
             const pack = game.packs.get(data.id);
             if (!pack) return false;
-            return await this.registerAutomationCompendium(pack, {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll});
+            // Isolate pack failures so one bad pack (or a racing index request) can't abort the rest
+            return await this.registerAutomationCompendium(pack, {configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, source: id, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, types2014, types2024, typesAll}).catch(error => {
+                Logging.addRegistrationError({pack: data.id}, 'automation', error);
+                return false;
+            });
         }));
         Logging.groupEnd();
         return results;

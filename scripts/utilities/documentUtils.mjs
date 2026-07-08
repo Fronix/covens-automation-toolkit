@@ -2,7 +2,7 @@ import {activityUtils, actorUtils, effectUtils, genericUtils, itemUtils, queryUt
 function getRules(document, {documentType = document.documentName} = {}) {
     // Items without an explicit source ruleset follow the world's rules version, so
     // pre-5.x / imported items still match automations registered for the active ruleset.
-    if (documentType === 'Item') return document.system.source.rules || (game.settings.get('dnd5e', 'rulesVersion') === 'legacy' ? '2014' : '2024');
+    if (documentType === 'Item') return document.system?.source?.rules || (game.settings.get('dnd5e', 'rulesVersion') === 'legacy' ? '2014' : '2024');
     return document.flags.cat?.automation?.rules;
 }
 function getSource(document) {
