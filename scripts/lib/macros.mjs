@@ -50,7 +50,7 @@ export class RegisteredMacros {
         return result;
     }
     registerFnMacro(data, overwrite = false) {
-        const cleaned = this.#macrosSchema.clean(data, {migrate: true, prune: false});
+        const cleaned = this.#macrosSchema.clean(data, {prune: false});
         const validationError = this.#macrosSchema.validate(cleaned);
         if (validationError) {
             Logging.addRegistrationError(cleaned, 'macro', validationError.asError());
@@ -121,14 +121,6 @@ class RulesField extends fields.StringField {
     }
     _isValidChoice(value){
         return !!this.choices[value];
-    }
-    _migrate(value, _options, _state) {
-        if (this._isValidChoice(value)) return value;
-        switch(value) {
-            case 'modern': return '2024';
-            case 'legacy': return '2014';
-            default: return 'all';
-        }
     }
 }
 export default {
