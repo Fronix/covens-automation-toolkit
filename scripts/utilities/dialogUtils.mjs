@@ -1,5 +1,6 @@
 import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
 import {queryUtils, tokenUtils, automationUtils} from './_module.mjs';
+import constants from '../lib/constants.mjs';
 
 async function runDialog(userId, title, content, inputs, buttons, config) {
     if (userId === game.user.id) return await DialogApp.dialog(title, content, inputs, buttons, config);
@@ -195,13 +196,12 @@ async function selectSpellSlot(actor, title, content, {maxLevel = 9, minLevel = 
     return await buttonDialog(title, content, buttons, {displayAsRows: true, userId});
 }
 async function selectDamageType(damageTypes, title, content, {addNo = false, userId = game.user.id, sort = null} = {}) {
-    let buttons = damageTypes.map(t => [
-        CONFIG.DND5E.damageTypes[t]?.label ?? t,
-        t,
-        {image: CONFIG.DND5E.damageTypes[t]?.icon, imageClass: 'cat-dmg-icon'}
-    ]);
+    let buttons = damageTypes.map(t => {
+        const config = constants.damageTypeOptions().find(o => o.value === t);
+        return [config?.label ?? t, t, {image: config?.image, invertColor: config?.invertColor}];
+    });
     if (sort === 'alphabetical') buttons.sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'en', {sensitivity: 'base'}));
-    if (addNo) buttons.push(['No', false, {image: 'icons/svg/cancel.svg'}]);
+    if (addNo) buttons.push(['No', false, {image: constants.damageIcons.no}]);
     return await buttonDialog(title, content, buttons, {userId});
 }
 async function selectHitDie(actor, title, content, {max = 1, userId = game.user.id, additionalItems = []} = {}) {
