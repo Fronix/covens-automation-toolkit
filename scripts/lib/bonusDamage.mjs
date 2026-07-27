@@ -1,9 +1,10 @@
-import {workflowUtils} from '../utilities/_module.mjs';
-class BonusDamage {
+import {effectUtils, workflowUtils} from '../utilities/_module.mjs';
+export default class BonusDamage {
     #targets;       // Set      | Target(s) of the bonus damage.
     #roll;          // Roll     | The unevaluated roll.
     #maxTargets;    // Number   | Max targets, if any.
     #document;      // Document | Item, Activity, and possibly the effect providing this bonus damage.
+    #activity;      // Activity | Used for default consumption and scaling if a `scaling` callback is not provided.
     #validate;      // Function | Callback function that returns true if the bonus damage may apply. 
     #scaling;       // Function | Callback function that gets called when a slider is moved in the UI to update values of the bonus damage, such as the roll, max targets, etc.
     #maxScaling;    // Number   | Max value of the scaling slider.
@@ -12,10 +13,11 @@ class BonusDamage {
     #maxTargetsHint;// String   | Text for the UI max targets hint.    
     #validateHint;  // String   | Text for the UI that explains the validity of bonus damage.
     #optional;      // Boolean  | Whether this bonus damage is optional or not. If there are only static bonus damages and no optional ones, the dialog shouldn't be shown.
-    #bonusAction;   // Boolean  | Whether this bonus damage takes a bonus action to use. If true only one bonus action bonus damage may be selected. Additionally requires the attack to be on your own turn.
+    #action;        // Boolean  | Action economy required to use the bonus. Only reactions can be used outside of your own turn.
     #active;        // Boolean  | Whether this bonus damage is active or not.
-    constructor(document, {maxTargets, validate, scaling, use, scalingHint, maxTargetsHint, validateHint, maxScaling, roll, optional = true, bonusAction} = {}) {
+    constructor(document, {maxTargets, validate, scaling, use, scalingHint, maxTargetsHint, validateHint, maxScaling, roll, optional = true, action} = {}) {
         this.#document = document;
+        if (!scaling) this.#getActivity(document);
         this.#maxTargets = maxTargets;
         this.#validate = validate ?? BonusDamage.defaultValidate;
         this.#scaling = scaling ?? BonusDamage.defaultScaling;
@@ -25,9 +27,31 @@ class BonusDamage {
         this.#maxTargetsHint = maxTargetsHint;
         this.#validateHint = validateHint;
         this.maxScaling = maxScaling ?? (this.#document.documentName === 'Item' ? this.#document.system.uses.max : this.#document.uses.max);
-        this.#roll = roll ?? new CONFIG.Dice.DamageRoll('1d4', this.#document.getRollData());
+        this.#roll = roll ?? new CONFIG.Dice.DamageRoll('1d4', (this.#activity ?? this.#document).getRollData?.());
         this.#optional = optional;
+        this.#action = action;
     }
+    #getActivity(document) {
+        switch (document.documentName) {
+            case 'Activity':
+                this.#activity = document;
+                return;
+            case 'Item': {
+                const activities = document.system.activities?.filter(a =>
+                    a.canUse !== false &&
+                    !document.flags.dnd5e?.riders?.activity?.includes(a.id) &&
+                    !a.midiProperties?.automationOnly &&
+                    !a.flags.cat?.hidden
+                );
+                if (activities.length === 1) this.#activity = activities[0];
+                return;
+            }
+            case 'ActiveEffect':
+                this.#activity = effectUtils.getOriginActivitySync(document);
+                return;
+        }
+    }
+    /** @type {dnd5e.dice.DamageRoll} */
     get roll() {
         return this.#roll;
     }
@@ -35,6 +59,7 @@ class BonusDamage {
         if (!(newRoll instanceof CONFIG.Dice.DamageRoll)) return;
         this.#roll = newRoll;
     }
+    /** @type {Set<foundry.documents.TokenDocument>} Targets of the damage. Size truncated to {@link maxTargets}, if present. */
     get targets() {
         return this.#targets;
     }
@@ -42,6 +67,7 @@ class BonusDamage {
         this.#targets = new Set(tokens);
         if (this.#maxTargets && this.#targets.size > this.#maxTargets) this.#targets = new Set(Array.from(this.#targets).slice(0, this.#maxTargets));
     }
+    /** @type {number} */
     get maxTargets() {
         return this.#maxTargets;
     }
@@ -51,6 +77,7 @@ class BonusDamage {
     async validate(workflow, otherBonusDamages) {
         return this.#validate({bonusDamage: this, workflow, otherBonusDamages});
     }
+    /** @type {dnd5e.dataModels.activity.BaseActivityData|foundry.documents.Item|foundry.documents.ActiveEffect} */
     get document() {
         return this.#document;
     }
@@ -60,24 +87,31 @@ class BonusDamage {
     async use(workflow, otherBonusDamages) {
         return await this.#use({workflow, bonusDamage: this, otherBonusDamages});
     }
+    /** @type {string} File path to an icon for the bonus source {@link BonusDamage.document|document}. */
     get img() {
         return this.#document.img;
     }
+    /** @type {string} Name of the bonus source {@link BonusDamage.document|document}. */
     get name() {
         return this.#document.name;
     }
+    /** @type {string} Description of the bonus source {@link BonusDamage.document|document}. */
     get description() {
         return this.#document.system.description.value;
     }
+    /** @type {string} */
     get scalingHint() {
         return this.#scalingHint;
     }
+    /** @type {string} */
     get maxTargetsHint() {
         return this.#maxTargetsHint;
     }
+    /** @type {string} */
     get validateHint() {
         return this.#validateHint;
     }
+    /** @type {number} */
     get maxScaling() {
         return this.#maxScaling;
     }
@@ -85,6 +119,11 @@ class BonusDamage {
         this.#maxScaling = Number(value);
     }
     static async defaultScaling({value, bonusDamage, workflow, otherBonusDamages}) {
+        if (bonusDamage.#activity?.damage.parts.length) {
+            if (!bonusDamage.#activity.canScaleDamage) return bonusDamage.roll;
+            const formula = bonusDamage.#activity.damage.parts.map(part => part.scaledFormula(value)).join(' + ');
+            return new CONFIG.Dice.DamageRoll(formula, bonusDamage.roll.data);
+        }
         const dieTerm = bonusDamage.roll.terms.find(i => i.faces);
         if (dieTerm) dieTerm.number = Math.min(value, bonusDamage.maxScaling);
         bonusDamage.roll.resetFormula();
@@ -101,12 +140,15 @@ class BonusDamage {
             await workflowUtils.completeActivityUse(bonusDamage.document, Array.from(bonusDamage.targets));
         }
     }
+    /** @type {boolean} True if this bonus requires user input. */
     get optional() {
         return this.#optional;
     }
-    get bonusAction() {
-        return this.#bonusAction;
+    /** @type {'action'|'bonus'|'reaction'|undefined} Action economy required. See `CONFIG.DND5E.activityActivationTypes`. */
+    get actionRequired() {
+        return this.#action;
     }
+    /** @type {boolean} True if this bonus will be applied. */
     get active() {
         return this.#active;
     }
