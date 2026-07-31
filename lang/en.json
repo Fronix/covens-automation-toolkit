@@ -858,6 +858,10 @@
     "OptionalBonusDamage": {
       "Title": "Bonus Damage",
       "Context": "Apply optional bonus damage?"
+    },
+    "Summon": {
+      "DeadTitle": "CAT Summons",
+      "DeadContext": "Summon creature {name} reached 0 hp, delete actor and token?"
     }
   }
 }

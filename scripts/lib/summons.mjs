@@ -325,7 +325,7 @@ export class SummonsManager {
         return spawnedTokens;
     }
     async zeroHP(summon) {
-        const selection = await dialogUtils.confirm('CAT.Summon.DeadTitle', 'CAT.Summon.DeadContext', {userId: queryUtils.gmID()});
+        const selection = await dialogUtils.confirm('CAT.Summon.DeadTitle', _loc('CAT.Summon.DeadContext', {name: summon.actor.name}), {userId: queryUtils.gmID()});
         if (!selection) return;
         await this.deleteSummon(summon);
     }
