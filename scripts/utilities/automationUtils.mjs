@@ -1,4 +1,4 @@
-import {documentUtils, genericUtils, itemUtils} from './_module.mjs';
+import {documentUtils, genericUtils, itemUtils, compendiumUtils} from './_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
 import {itemEvents} from '../events/_module.mjs';
 function getCurrentAutomation(item) {
@@ -290,6 +290,15 @@ function getResolvedAnimation(document, settingKey, {source, identifier} = {}) {
     if (animation.config) Object.keys(animation.config).forEach(key => options[key] = isGeneric ? getGenericAnimationConfig(document, source, identifier, settingKey, key) : getAnimationConfig(document, settingKey, key));
     return {animation, options};
 }
+async function getCompendiumDocumentByName(name, type) {
+    if (!['monster', 'item', 'spell', 'macro'].includes(type)) return;
+    let setting = Object.entries(game.settings.get('cat', type + 'Compendiums')).map(([key, value]) => ({id: key, ...value})).filter(i => i.enabled).sort((a, b) => a.priority - b.priority);
+    let result;
+    for (const data of setting) {
+        result = await compendiumUtils.getDocumentByName(data.id, name);
+        if (result) return result;
+    }
+}
 export default {
     getCurrentAutomation,
     getAutomationStatus,
@@ -319,5 +328,6 @@ export default {
     calledEvent,
     calledEventSync,
     getAnimationConfig,
-    getResolvedAnimation
+    getResolvedAnimation,
+    getCompendiumDocumentByName
 };
