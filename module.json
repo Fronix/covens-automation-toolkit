@@ -10,6 +10,8 @@
         "maximum":"14"
     },
     "url":"https://github.com/jacob-git42/covens-automation-toolkit",
+    "manifest":"https://raw.githubusercontent.com/jacob-git42/covens-automation-toolkit/refs/heads/main/module.json",
+    "download":"https://github.com/jacob-git42/covens-automation-toolkit/archive/refs/heads/main.zip",
     "esmodules":[
         "scripts/module.mjs"
     ],
