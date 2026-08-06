@@ -269,7 +269,7 @@ async function getSourceDocumentByIdentifier(identifier, type) {
     for (const packId of sortedPacks) {
         const pack = game.packs.get(packId);
         if (!pack) continue;
-        const index = await pack.getIndex({fields: ['system.identifier', 'flags.cat.automation.identifier']});
+        const index = await pack.getIndex({fields: ['system.identifier', 'flags.cat.identifier']});
         const match = index.find(document => documentUtils.getIdentifier(document) === identifier);
         if (match) return await pack.getDocument(match._id);
     }
