@@ -158,6 +158,40 @@ function getDependencies(activity) {
     });
     return dependencies;
 }
+
+function hasDefaultIcon(activity) {
+    return activity.img === activity.constructor.metadata.img;
+}
+
+function hasDefaultName(activity) {
+    return activity.name === _loc(activity.constructor.metadata.title);
+}
+
+/**
+ * @param {dnd5e.dataModels.activity.BaseActivityData} activity 
+ * @param {object} [options]
+ * @param {'oneHanded'|'twoHanded'|'offhand'|'ranged'|'thrown'|'thrown-offhand'} [options.attackMode] A key from CONFIG.DND5E.attackModes.
+ * @param {number} [options.scaling]
+ * @param {boolean} [options.simplify] Combine like dice terms, respecting damage type and properties.
+ * @returns {dnd5e.dice.DamageRoll[]} Unevaluated damage rolls.
+ */
+function getDefaultDamageRolls(activity, {attackMode, scaling = 0, simplify = true} = {}) {
+    const data = activity.getDamageConfig({attackMode, scaling}).rolls;
+    if (!simplify) return data.map(d => CONFIG.Dice.DamageRoll.fromConfig(d, {}));
+    const rolls = dnd5e.dice.aggregateDamageRolls(data.map(d => {
+        const formula = dnd5e.dice.simplifyRollFormula(d.parts.join(' + '));
+        return new CONFIG.Dice.DamageRoll(formula, d.data, d.options);
+    }), {respectProperties: true});
+    rolls.forEach(r => {
+        if (!(r.terms[0] instanceof foundry.dice.terms.OperatorTerm)) return;
+        if (r.terms[0].operator !== '+') return;
+        r.terms.shift();
+        r.resetFormula();
+    });
+    return rolls;
+}
+
+
 export default {
     getSaveDC,
     getSavedCastData,
@@ -166,5 +200,8 @@ export default {
     syntheticActivity,
     getEffectDuration,
     getDuration,
-    getDependencies
+    getDependencies,
+    hasDefaultIcon,
+    hasDefaultName,
+    getDefaultDamageRolls
 };

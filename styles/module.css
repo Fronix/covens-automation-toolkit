@@ -96,8 +96,22 @@
     font-size: 1rem;
 }
 
-.cat-dialog-icon {
+.cat-dialog-icon,
+.cat-warning-icon {
     color: var(--cat-text-accent);
+}
+
+.cat-damage-icon {
+    vertical-align: -0.125em;
+    display: inline;
+    height: 1em;
+    width: 1em;
+}
+
+.hint > .cat-warning-icon,
+.cat-combobox-tag > .cat-damage-icon,
+.cat-combobox-tag > .cat-warning-icon {
+    margin-right: var(--cat-space-xs);
 }
 
 .cat-app-header-button {
@@ -166,6 +180,8 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    border-color: var(--cat-border-light);
+    padding: var(--cat-space-sm);
 }
 
 .cat-dialog .cat-body-button .button-image {
@@ -563,6 +579,18 @@
     opacity: 0.65;
 }
 
+.cat-dialog .form-group:has(.cat-tags) > .form-fields {
+    flex: 0;
+}
+
+.cat-tags {
+    width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    min-width: min-content;
+    gap: var(--cat-space-xs);
+}
+
 .cat-dialog .form-group.cat-locked > .form-fields > input[type="checkbox"] {
     cursor: default;
 }
@@ -641,6 +669,19 @@
 .cat-dialog .form-group.cat-multi-combobox-group > label,
 .cat-medkit .form-group.cat-multi-combobox-group > label {
     grid-column: 1;
+}
+
+.cat-dialog .form-group.cat-multi-combobox-group cat-multi-combobox > .cat-multi-combobox-chips {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    min-width: 100%;
+    width: 0;
+}
+
+.cat-dialog .form-group.cat-multi-combobox-group .cat-multi-combobox-chip {
+    flex-shrink: 0;
+    width: auto;
 }
 
 .cat-dialog .form-group.cat-no-label,
@@ -1210,7 +1251,8 @@ cat-combobox {
     display: block;
 }
 
-.cat-medkit fieldset {
+.cat-medkit fieldset,
+.cat-dialog-body fieldset {
     gap: var(--cat-space-sm);
     display: flex;
     flex-direction: column;
@@ -1221,7 +1263,70 @@ cat-combobox {
     background: rgb(0 0 0 / 12%);
 }
 
-.cat-medkit fieldset > legend {
+.cat-collapsible-icon-placeholder {
+    display: flex;
+    cursor: pointer;
+    flex: 0 0 24px;
+    padding: 8px;
+    width: 24px;
+    margin-left: -5px;
+}
+
+.cat-collapsible-icon {
+    transition: transform 250ms ease;
+}
+
+.cat-form-group.collapsed .cat-collapsible-icon {
+    transform: rotate(-90deg);
+}
+
+.cat-has-collapsible .cat-form-group {
+    border-bottom: 1px solid var(--cat-border-light);
+    margin-bottom: var(--cat-space-md);
+    padding-bottom: var(--cat-space-md);
+}
+
+.cat-collapsible-wrapper > .cat-form-group,
+.cat-has-collapsible .cat-form-group:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.cat-form-group .cat-collapsible-content {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: all 250ms ease;
+}
+
+.cat-form-group.collapsed .cat-collapsible-content {
+    grid-template-rows: 0fr;
+    opacity: 0;
+}
+
+.cat-form-group .cat-collapsible-content > .cat-collapsible-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--cat-space-lg);
+    border-left: 1px solid var(--cat-text-accent);
+    padding-left: 20px;
+    margin: 10px;
+    overflow: hidden;
+}
+
+.cat-form-group.collapsed .cat-collapsible-content > .cat-collapsible-wrapper {
+    padding: 0 0 0 20px;
+    margin: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.cat-dialog-body .form-group > label {
+    cursor: pointer;
+}
+
+.cat-medkit fieldset > legend,
+.cat-dialog-body fieldset > legend {
     padding: 0 var(--cat-space-sm);
     color: var(--cat-text-accent);
     font-weight: 600;
@@ -1492,7 +1597,13 @@ cat-combobox {
 .cat-medkit .hint,
 .cat-dialog .hint,
 .cat-embedded-macros-body .hint {
+    width: 0;
+    min-width: 100%;
     color: var(--cat-text-muted);
+}
+
+.cat-form-group:has(.cat-multi-combobox-group) .hint {
+    margin-top: var(--cat-space-xs);
 }
 
 .cat-medkit button {

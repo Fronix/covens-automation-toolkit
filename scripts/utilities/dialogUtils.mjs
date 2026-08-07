@@ -1,6 +1,21 @@
 import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
-import {queryUtils, tokenUtils, automationUtils} from './_module.mjs';
+import {queryUtils, tokenUtils, automationUtils, uiUtils} from './_module.mjs';
 import constants from '../lib/constants.mjs';
+import {DamageBonus} from '../lib/_module.mjs';
+
+/**
+ * @param {foundry.documents.TokenDocument} token 
+ * @param {object} [options]
+ * @param {boolean} [options.hide]
+ * @param {object} [options.counter]
+ * @param {number} [options.counter.value]
+ * @returns 
+ */
+function getTokenName(token, {hide, counter} = {}) {
+    if (!hide || token.disposition > 0) return token.name;
+    const name = _loc('CAT.Dialog.UnknownTarget');
+    return Number.isNumeric(counter?.value) ? name + '(' + counter.value++ + ')' : name;
+}
 
 async function runDialog(userId, title, content, inputs, buttons, config) {
     if (userId === game.user.id) return await DialogApp.dialog(title, content, inputs, buttons, config);
@@ -176,6 +191,128 @@ async function selectDocumentDialog(title, content, documents, {max = 1, display
         return {document, key, amount: Number(value), select: result['sel-' + key]};
     }).filter(i => i);
 }
+/**
+ * 
+ * @param {DamageBonus[]} bonuses 
+ * @param {object} [options]
+ * @param {foundry.documents.TokenDocument[]|Set<foundry.documents.TokenDocument>} [options.targets]
+ * @param {MidiQOL.Workflow} [options.workflow]
+ * @param {string} [options.title]
+ * @param {string} [options.content]
+ */
+async function selectScaledDocument(bonuses, {targets, workflow, title = 'CAT.OptionalBonus.Title', content = 'CAT.OptionalBonus.Content'} = {}) {
+    if (!bonuses.length) return false;
+    bonuses = bonuses.sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
+    const validateAll = context => {
+        DamageBonus.ValidateAll(bonuses, {workflow});
+        for (const bonusContext of context) {
+            const index = bonusContext.name.match(/\d+/)[0];
+            const bonus = bonuses[index];
+            bonusContext.isChecked = bonus.active;
+            bonusContext.hints = bonus.validateHints;
+        }
+    };
+    const tagLabel = key => CONFIG.DND5E.activityActivationTypes[key]?.label ?? CONFIG.DND5E.activityConsumptionTypes[key]?.label ?? key;
+    const sliderChange = ({bonus, thisContext, input, getInputById}) => {
+        bonus.updateScaling(input.value, workflow, bonuses);
+        input.hints = bonus.scalingHints;
+        const targets = thisContext.inputs.find(i => i.isComboboxMulti)?.options[0];
+        if (targets) {
+            targets.maxTotal = bonus.maxTargets;
+            targets.hints = bonus.maxTargetsHints;
+            const selected = targets.options.filter(o => o.selected);
+            if (selected.length > targets.maxTotal)
+                for (let i = 0; i < selected.length - targets.maxTotal; i++)
+                    selected[i].selected = false;
+        }
+        const tags = getInputById(input.id.split(DialogApp.SUBINPUT_SEPARATOR)[0])?.tags ?? [];
+        for (const t of tags) {
+            if (t.id === 'formula') {
+                t.label = bonus.roll.formula;
+                continue;
+            }
+            const hint = bonus.scalingHints.find(h => h.id === t.id);
+            if (!hint) continue;
+            t.tooltip = hint.tooltip;
+            t.icon = hint.icon;
+        }
+        return true;
+    };
+    const targetsChange = ({bonus, input}) => {
+        const selected = new Set(input.options.filter(o => o.selected).map(o => o.value));
+        if (selected.size === bonus.targets.size) return;
+        bonus.targets = targets.filter(t => selected.has(t.id));
+    };
+    const hide = game.settings.get('cat', 'hideNames');
+    const optional = [], contextual = [];
+    for (let i = 0; i < bonuses.length; i++) {
+        const bonus = bonuses[i];
+        const name = 'b-' + i;
+        const subinputs = [];
+        if (bonus.maxScaling > 0)
+            subinputs.push(['slider', [{
+                name: name + '.scaling',
+                hints: bonus.scalingHints,
+                label: 'CAT.OptionalBonus.Scaling',
+                options: {
+                    min: 0,
+                    max: bonus.maxScaling,
+                    step: 1,
+                    onchange: ({thisContext, input, getInputById}) => sliderChange({bonus, thisContext, input, getInputById})
+                }
+            }]]);
+        const counter = {value: 1};
+        if (targets && bonus.maxTargets > 0)
+            subinputs.push(['comboboxMulti', [{
+                name: name + '.targets',
+                hints: bonus.maxTargetsHints,
+                label: 'CAT.OptionalBonus.Targets',
+                options: {
+                    maxTotal: bonus.maxTargets,
+                    options: targets.map(t => ({
+                        label: getTokenName(t, {hide, counter}),
+                        image: t.texture.src,
+                        value: t.id
+                    })),
+                    onchange: ({input}) => targetsChange({bonus, input})
+                }
+            }]]);
+        const tags = [];
+        if (bonus.roll) {
+            const type = CONFIG.DND5E.damageTypes[bonus.roll.options.type] ?? CONFIG.DND5E.healingTypes[bonus.roll.options.type];
+            tags.push({label: bonus.roll.formula, id: 'formula', image: type?.icon, tooltip: type?.label});
+        }   
+        if (bonus.scalingHints?.length) tags.push(...bonus.scalingHints.map(h => ({...h, label: tagLabel(h.id)})));
+        if (bonus.maxScaling > 0) tags.push({label: 'CAT.OptionalBonus.Scaleable', id: 'scaling'});
+        if (bonus.maxTargets > 0) tags.push({label: 'CAT.OptionalBonus.Targeted', id: 'targets'});
+        const fieldset = bonus.optional ? optional : contextual;
+        fieldset.push({
+            label: bonus.name,
+            hints: bonus.validateHints,
+            name: name + '.active',
+            options: {
+                image: bonus.img,
+                tooltip: await uiUtils.enrichHTML(bonus.description, bonus.roll.data),
+                subinputs,
+                locked: !bonus.optional,
+                isChecked: !bonus.optional,
+                tags,
+                onchange: ({input, group}) => {
+                    bonus.active = input.isChecked;
+                    validateAll(group.options);
+                    return true;
+                }
+            }
+        });
+    }
+    const inputs = [];
+    if (!optional.length) return [];
+    else inputs.push(['checkbox', optional, {displayAsRows: true, legend: contextual.length > 0 ? 'CAT.OptionalBonus.Optional' : ''}]);
+    if (contextual.length) inputs.push(['checkbox', contextual, {displayAsRows: true, legend: 'CAT.OptionalBonus.Contextual'}]);
+    const choices = await runDialog(game.user.id, title, content, inputs, 'okCancel', {height: 'auto'});
+    if (!choices?.buttons) return false;
+    return DamageBonus.ValidateAll(bonuses, {workflow});
+}
 async function selectAmounts(title, content, fields, {totalMax, displayAsRows = true, userId = game.user.id, buttons = 'okCancel'} = {}) {
     let inputs = [['selectAmount', fields, {displayAsRows, totalMax}]];
     let result = await runDialog(userId, title, content, inputs, buttons, {height: 'auto'});
@@ -284,15 +421,9 @@ async function selectTargetDialog(title, content, targets, {type = 'one', select
     const inputs = [[inputType]];
     const targetInputs = [];
     const hideNames = game.settings.get('cat', 'hideNames');
-    let number = 1;
+    const counter = {value: 1};
     for (const i of targets) {
-        let label;
-        if (hideNames && i.disposition <= 0) {
-            label = _loc('CAT.Dialog.UnknownTarget') + ' (' + number + ')';
-            number++;
-        } else {
-            label = i.name;
-        }
+        let label = getTokenName(i, {hide: hideNames, counter});
         if (coverToken && !reverseCover) label += ' [' + tokenUtils.checkCover(coverToken, i, {displayName: true}) + ']';
         else if (coverToken) label += ' [' + tokenUtils.checkCover(i, coverToken, {displayName: true}) + ']';
         if (displayDistance && coverToken) label += ' [' + tokenUtils.getDistance(coverToken, i).toFixed(2) + ' ' + canvas.scene.grid.units + ' ]';
@@ -353,6 +484,7 @@ export default {
     numberDialog,
     selectDialog,
     selectDocumentDialog,
+    selectScaledDocument,
     selectAmounts,
     selectSpellSlot,
     selectDamageType,

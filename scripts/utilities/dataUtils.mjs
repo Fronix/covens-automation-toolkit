@@ -96,8 +96,20 @@ function buildEffectData(effectData, {macros, removeMacros, createAnimation, del
     if (copyConfigs) genericUtils.setProperty(effectData, 'flags.cat.config', genericUtils.mergeObject(effectData.flags.cat?.config ?? {}, copyConfigs));
     return effectData;
 }
+
+function toArray(data) {
+    if (data === undefined || data === null) return [];
+    if (Array.isArray(data)) return data;
+    if (typeof data === 'string') {
+        if (data.includes(',')) return data.split(',').map(s => s.trim()).filter(Boolean);
+        else return [data];
+    }
+    if (typeof data[Symbol.iterator] === 'function') return Array.from(data);
+    return [data];
+}
 export default {
     setRules,
     setIdentifier,
-    buildEffectData
+    buildEffectData,
+    toArray
 };
