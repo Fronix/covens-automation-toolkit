@@ -15,7 +15,7 @@ const compat = new FlatCompat({
 });
 
 export default defineConfig([
-    globalIgnores(['foundry/**/*', 'dnd5e/**/*', 'node_modules/**/*', 'todo/**/*']),
+    globalIgnores(['foundry/**/*', 'dnd5e/**/*', 'node_modules/**/*', 'todo/**/*', 'dist/**/*']),
     {
         extends: compat.extends('eslint:recommended'),
         plugins: {
