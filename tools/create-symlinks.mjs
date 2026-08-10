@@ -22,11 +22,17 @@ if (fs.existsSync('foundry-config.yaml')) {
         console.error(`Error reading foundry-config.yaml: ${err}`);
     }
 
+    // `foundry` holds symlinks, but `dnd5e` *is* one - creating it as a directory
+    // makes the symlink below fail with EEXIST.
     try {
         await fs.promises.mkdir('foundry');
-        await fs.promises.mkdir('dnd5e');
     } catch (e) {
         if (e.code !== 'EEXIST') throw e;
+    }
+    try {
+        if ((await fs.promises.lstat('dnd5e')).isDirectory()) await fs.promises.rmdir('dnd5e');
+    } catch (e) {
+        if (e.code !== 'ENOENT') throw e;
     }
 
     // Javascript files
