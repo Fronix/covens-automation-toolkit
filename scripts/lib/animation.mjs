@@ -5,7 +5,7 @@ export class RegisteredAnimations {
     #animationSchema;
     #multiAnimationSchema;
     constructor() {
-        this.animations = [];
+        this.animations = new Map();
         this.#animationSchema = new fields.SchemaField({
             source: new fields.StringField({required: true, nullable: false}),
             identifier: new fields.StringField({required: true, nullable: false}),
@@ -13,7 +13,6 @@ export class RegisteredAnimations {
             macros: new fields.ObjectField({required: true, nullable: false}),
             inputs: new fields.ArrayField(new fields.StringField({required: true, nullable: false}), {required: true, nullable: false}),
             requirements: new fields.ArrayField(new fields.StringField({required: false, nullable: false}), {required: false}),
-            type: new fields.StringField({required: false, nullable: false}),
             config: new fields.ObjectField({required: false, nullable: false}),
             category: new fields.StringField({required: false, nullable: false}),
             credits: new fields.ArrayField(new fields.SchemaField({
@@ -24,13 +23,16 @@ export class RegisteredAnimations {
         });
         this.#multiAnimationSchema = new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}));
     }
+    #makeKey(source, identifier) {
+        return source + '|' + identifier;
+    }
     registerAnimation(data) {
         const validationError = this.#animationSchema.validate(data);
         if (validationError) {
             Logging.addRegistrationError(data, 'animation', validationError.asError());
             return false;
         }
-        this.animations.push(new Animation(data.source, data.identifier, data.name, data.macros, data.inputs, {requirements: data.requirements, type: data.type, config: data.config, category: data.category, credits: data.credits}));
+        this.animations.set(this.#makeKey(data.source, data.identifier), new Animation(data.source, data.identifier, data.name, data.macros, data.inputs, {requirements: data.requirements, config: data.config, category: data.category, credits: data.credits}));
         return true;
     }
     registerAnimations(data = []) {
@@ -42,7 +44,7 @@ export class RegisteredAnimations {
         return data.map(i => this.registerAnimation(i));
     }
     getAnimation(source, identifier) {
-        return this.animations.find(animation => animation.source === source && animation.identifier === identifier);
+        return this.animations.get(this.#makeKey(source, identifier));
     }
     getGenericAnimationConfig(document, source, identifier, settingKey, key) {
         const animationData = automationUtils.getGenericConfigValue(document, source, identifier, settingKey);
@@ -74,14 +76,13 @@ export class RegisteredAnimations {
     }
 }
 class Animation {
-    constructor(source, identifier, name, macros, inputs, {requirements, type, config, category, credits} = {}) {
+    constructor(source, identifier, name, macros, inputs, {requirements, config, category, credits} = {}) {
         this.source = source;
         this.identifier = identifier;
         this.name = name;
         this.macros = macros;
         this.inputs = inputs;
         this.requirements = requirements;
-        this.type = type;
         this.config = config;
         this.category = category ?? 'default';
         this.credits = credits;

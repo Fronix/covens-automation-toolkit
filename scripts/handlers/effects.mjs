@@ -187,6 +187,24 @@ async function specialDurationEquipment(item, {removed} = {}) {
         if (specialDurations.includes(item.system.type?.value)) await documentUtils.deleteDocument(effect);
     }));
 }
+async function disableConditionEquipment(item) {
+    const actor = item.actor;
+    if (!actor) return;
+    await Promise.all(actorUtils.getEffects(actor, {includeItemEffects: true}).map(async effect => {
+        const conditions = effect.flags.cat?.disableCondition;
+        if (!conditions?.length) return;
+        const shouldDisable = actor.items.some(i => i.system.equipped && i.type === 'equipment' && conditions.includes(i.system.type?.value));
+        if (!!effect.disabled !== shouldDisable) await documentUtils.update(effect, {disabled: shouldDisable});
+    }));
+}
+async function disableConditionStatuses(effect, gainedStatus) {
+    await Promise.all(actorUtils.getEffects(effect.parent, {includeItemEffects: true}).filter(i => i.id != effect.id).map(async eff => {
+        const disableConditions = eff.flags.cat?.disableCondition;
+        if (!disableConditions?.length) return;
+        const shouldDisable = effect.statuses.some(k => disableConditions.includes(k)) & gainedStatus;
+        if (!!effect.disabled !== shouldDisable) await documentUtils.update(eff, {disabled: shouldDisable});
+    }));
+}
 async function specialDurationHitPoints(actor, updates) {
     const validTypes = [];
     if (updates.system?.attributes?.hp?.temp === 0) validTypes.push('tempHP');
@@ -248,6 +266,8 @@ export default {
     specialDurationConditions,
     specialDurationRemovedConditions,
     specialDurationEquipment,
+    disableConditionEquipment,
+    disableConditionStatuses,
     specialDurationToolCheck,
     specialDurationHitPoints,
     specialDurationMove,

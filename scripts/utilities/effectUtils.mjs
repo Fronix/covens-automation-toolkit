@@ -1,4 +1,4 @@
-import {dataUtils, queryUtils} from './_module.mjs';
+import {dataUtils, documentUtils, queryUtils} from './_module.mjs';
 function getCastData(effect) {
     return effect.flags.cat?.castData ?? effect.flags['midi-qol']?.castData;
 }
@@ -43,18 +43,17 @@ function getConditions(effect) {
     return conditions;
 }
 async function getOriginActivity(effect) {
-    if (typeof effect === 'string') effect = await fromUuid(effect);
     if (!effect) return;
     const activityUuid = effect.flags.dae?.activity ?? effect.flags.cat?.activityUuid;
     if (activityUuid) return await fromUuid(activityUuid);
     if (!effect.origin) return;
     const origin = await fromUuid(effect.origin);
-    if (origin.documentName !== 'ActiveEffect') return;
+    if (!origin || origin.documentName !== 'ActiveEffect') return;
     const originActivityUuid = origin.flags.dnd5e?.activity?.uuid;
     if (originActivityUuid) return await fromUuid(originActivityUuid);
     if (origin.parent?.documentName === 'Item') {
         return origin.parent.system.activities?.find(activity => 
-            activity.effects.some(aEffect => aEffect.id === effect.id)
+            activity.effects.some(aEffect => aEffect.effect.id === origin.id)
         );
     }
 }
@@ -63,12 +62,12 @@ function getOriginActivitySync(effect) {
     if (activityUuid) return fromUuidSync(activityUuid, {strict: false});
     if (!effect.origin) return;
     const origin = fromUuidSync(effect.origin, {strict: false});
-    if (origin.documentName !== 'ActiveEffect') return;
+    if (!origin || origin.documentName !== 'ActiveEffect') return;
     const originActivityUuid = origin.flags.dnd5e?.activity?.uuid;
     if (originActivityUuid) return fromUuidSync(originActivityUuid, {strict: false});
     if (origin.parent?.documentName === 'Item') {
         return origin.parent.system.activities?.find(activity => 
-            activity.effects.some(aEffect => aEffect.id === effect.id)
+            activity.effects.some(aEffect => aEffect.effect.id === origin.id)
         );
     }
 }
@@ -80,6 +79,17 @@ function getActor(effect) {
     if (effect.parent instanceof Actor) return effect.parent;
     if (effect.parent instanceof Item) return effect.parent.actor;
 }
+/**
+ * Set the effect start time to the current world time or combat turn.
+ * @param {foundry.documents.ActiveEffect} effect
+ * @returns {Promise<foundry.documents.ActiveEffect>}
+ */
+async function resetDuration(effect) {
+    return await documentUtils.update(effect, {
+        start: ActiveEffect.implementation.getEffectStart(),
+        'duration.expired': false
+    });
+}
 export default {
     getCastData,
     createEffects,
@@ -87,5 +97,6 @@ export default {
     getOriginActivity,
     getOriginActivitySync,
     getConcentrationEffect,
-    getActor
+    getActor,
+    resetDuration
 };

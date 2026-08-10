@@ -1,5 +1,5 @@
 /** @import Actor5e from '../../dnd5e/module/documents/actor/actor.mjs'; */
-import {documentUtils, genericUtils, queryUtils} from '../utilities/_module.mjs';
+import {documentUtils, genericUtils, itemUtils, queryUtils} from '../utilities/_module.mjs';
 
 /**
  * Get all applicable effects on an actor, optionally including item-applied enchantments (not by default).
@@ -120,6 +120,19 @@ function getBestAbility(actor, abilities = ['str', 'dex', 'con', 'int', 'wis', '
 function checkTrait(actor, type, trait) {
     return !!actor.system.traits?.[type]?.value?.has(trait);
 }
+function hasSpellSlots(actor, atLeast = 0) {
+    return Object.values(actor.system.spells).some(i => i.value && i.level >= atLeast);
+}
+function getSize(actor, returnString) {
+    switch (actor.system.traits.size) {
+        case 'tiny': return returnString ? 'tiny' : 0;
+        case 'sm': return returnString ? 'sm' : 1;
+        case 'med': return returnString ? 'med' : 2;
+        case 'lg': return returnString ? 'lg' : 3;
+        case 'huge': return returnString ? 'huge' : 4;
+        case 'grg': return returnString ? 'grg' : 5;
+    }
+}
 
 /**
  * Get the active effect created explicitly to convey a given status effect on this actor, if any.
@@ -184,6 +197,41 @@ function getEquivalentSpellSlotName(actor, level, {canCast = false} = {}) {
     }
 }
 
+function getSpellSlotKey(actor, level) {
+    if (!actor.system.spells) return;
+    if (actor.system.spells[level]) return level;
+    return Object.entries(actor.system.spells).find(i => i[1].level == level)?.[0];
+}
+
+/**
+ * Spend spell slots of a given level or slot key (e.g. 2 or "pact").
+ * @param {Actor5e} actor
+ * @param {number|string} level
+ * @param {object} [options]
+ * @param {number} [options.amount]
+ * @returns {Promise<void>}
+ */
+async function spendSpellSlots(actor, level, {amount = 1} = {}) {
+    const key = getSpellSlotKey(actor, level);
+    if (!key) return;
+    const slot = actor.system.spells[key];
+    const value = Math.clamp(slot.value - amount, 0, slot.max);
+    if (value === slot.value) return;
+    return await documentUtils.update(actor, {['system.spells.' + key + '.value']: value});
+}
+
+/**
+ * Recover spell slots of a given level or slot key (e.g. 2 or "pact").
+ * @param {Actor5e} actor
+ * @param {number|string} level
+ * @param {object} [options]
+ * @param {number} [options.amount]
+ * @returns {Promise<void>}
+ */
+async function recoverSpellSlots(actor, level, {amount = 1} = {}) {
+    return await spendSpellSlots(actor, level, {amount: -amount});
+}
+
 /**
  * Get all spells which are currently castable by the actor, considering each spell's consumption, optionally
  * filtering by a list of provided identifiers.
@@ -193,33 +241,9 @@ function getEquivalentSpellSlotName(actor, level, {canCast = false} = {}) {
  * @returns {Item[]}
  */
 function getCastableSpells(actor, {identifiers = []} = {}) {
-    const maxSlot = Math.max(...Object.values(actor.system.spells).filter(i => i.value).map(j => j.level), 0);
     let validSpells = actor.items.filter(i => i.type === 'spell');
     if (identifiers.length) validSpells = validSpells.filter(i => identifiers.includes(documentUtils.getIdentifier(i)));
-    validSpells = validSpells.filter(i => i.system.method != 'spell' || i.system.level === 0 || i.system.prepared);
-    validSpells = validSpells.filter(i => !i.system.hasLimitedUses || i.system.uses.value);
-    validSpells = validSpells.filter(i => ['atwill', 'innate'].includes(i.system.method) || maxSlot >= i.system.level);
-    validSpells = validSpells.filter(i => {
-        const linkedActivity = i.system.linkedActivity;
-        if (!linkedActivity) return true;
-        for (const target of linkedActivity.consumption.targets ?? []) {
-            if (target.type === 'itemUses') {
-                let targetItem;
-                if (!target.target?.length) {
-                    targetItem = linkedActivity.item;
-                } else {
-                    targetItem = actor.items.get(target.target);
-                }
-                if (Number(targetItem?.system.uses.value ?? 0) < Number(target.value ?? 0)) return false;
-            } else if (target.type === 'activityUses') {
-                if (Number(linkedActivity.uses.value ?? 0) < Number(target.value ?? 0)) return false;
-            } else if (target.type === 'material') {
-                if (Number(actor.items.get(target.target)?.system.quantity ?? 0) < Number(target.value ?? 0)) return false;
-            }
-            return true;
-        }
-    });
-    return validSpells;
+    return validSpells.filter(i => itemUtils.canCast(i));
 }
 
 /**
@@ -229,6 +253,18 @@ function getCastableSpells(actor, {identifiers = []} = {}) {
  */
 function hasUsedReaction(actor) {
     return MidiQOL.hasUsedReaction(actor);
+}
+function typeOrRace(actor) {
+    return MidiQOL.typeOrRace(actor);
+}
+
+/**
+ * Return whether this actor has used their bonus action.
+ * @param {Actor5e} actor 
+ * @returns {boolean}
+ */
+function hasUsedBonusAction(actor) {
+    return MidiQOL.hasUsedBonusAction(actor);
 }
 
 /**
@@ -254,6 +290,14 @@ async function createActor(actorData) {
         return await fromUuid(uuid);
     }
 }
+function getMaxCastLevel(actor) {
+    const spells = actor.system.spells;
+    const pactLevel = (spells.pact && spells.pact.max > 0) ? (spells.pact.level || 0) : 0;
+    return [1, 2, 3, 4, 5, 6, 7, 8, 9].reduce((currentMax, i) => {
+        const slot = spells['spell' + i];
+        return (slot && slot.max > 0) ? Math.max(currentMax, i) : currentMax;
+    }, pactLevel);
+}
 export default {
     getEffects,
     getGroups,
@@ -266,12 +310,20 @@ export default {
     getEffectByIdentifier,
     getBestAbility,
     checkTrait,
+    hasSpellSlots,
+    getSize,
     getEffectByStatusID,
     applyConditions,
     getItemByIdentifier,
     getEquivalentSpellSlotName,
+    getSpellSlotKey,
+    spendSpellSlots,
+    recoverSpellSlots,
     getCastableSpells,
     hasUsedReaction,
+    typeOrRace,
     getEquippedWeapons,
-    createActor
+    createActor,
+    hasUsedBonusAction,
+    getMaxCastLevel
 };

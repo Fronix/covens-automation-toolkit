@@ -1,4 +1,4 @@
-import {documentUtils, genericUtils} from './_module.mjs';
+import {documentUtils, genericUtils, itemUtils, compendiumUtils} from './_module.mjs';
 import {constants, Events} from '../lib/_module.mjs';
 import {itemEvents} from '../events/_module.mjs';
 function getCurrentAutomation(item) {
@@ -6,14 +6,16 @@ function getCurrentAutomation(item) {
     const rules = documentUtils.getRules(item);
     const source = documentUtils.getSource(item);
     const type = item.type;
+    const sourceClass = itemUtils.getSourceClass(item, {subclass: true});
+    const sourceType = sourceClass ? sourceClass.system.type?.value ?? sourceClass.type : undefined;
     const actorType = type === 'spell' ? 'character' : item.actor?.type ?? 'character';
     const monsterIdentifier = actorType === 'npc' ? documentUtils.getIdentifier(item.actor) : undefined;
     if (!identifier || !rules) return;
     if (!source) {
-        const allAutomations = constants.automations.getAutomationByIdentifier(identifier, {rules, multiple: true, type, monsterIdentifier});
+        const allAutomations = constants.automations.getAutomationByIdentifier(identifier, {rules, multiple: true, type, monsterIdentifier, sourceType});
         return allAutomations.find(automation => automation.uuid === item.uuid);
     }
-    return constants.automations.getAutomationByIdentifier(identifier, {rules, source, monsterIdentifier, type});
+    return constants.automations.getAutomationByIdentifier(identifier, {rules, source, monsterIdentifier, type, sourceType});
 }
 function getAutomationStatus(document) {
     if (document.documentName === 'Item') return getItemAutomationStatus(document);
@@ -28,7 +30,6 @@ function getActorAutomationStatus(actor) {
     }, -2);
 }
 function getItemAutomationStatus(item) {
-    if (item.flags.cat?.genericConfig) return constants.automationStatus.GENERIC;
     const isApplied = getStoredHash(item) || getCurrentAutomation(item);
     if (isApplied) {
         if (!isUpToDate(item)) return constants.automationStatus.OUTDATED;
@@ -37,18 +38,19 @@ function getItemAutomationStatus(item) {
         return constants.automationStatus.UP_TO_DATE;
     }
     if (getAvailableAutomations(item).length) return constants.automationStatus.AVAILABLE;
+    if (item.flags.cat?.genericConfig) return constants.automationStatus.GENERIC;
     return constants.automationStatus.UNAVAILABLE;
 }
 function isUpToDate(item) {
+    const currentAutomation = getCurrentAutomation(item);
+    if (currentAutomation) {
+        if (foundry.utils.isNewerVersion(currentAutomation.version, documentUtils.getVersion(item))) return false;
+        return true;
+    }
     const storedHash = getStoredHash(item);
     if (storedHash) {
         const hash = getDocumentHash(item);
         if (hash != storedHash) return false;
-        return true;
-    }
-    const currentAutomation = getCurrentAutomation(item);
-    if (currentAutomation) {
-        if (foundry.utils.isNewerVersion(currentAutomation.version, documentUtils.getVersion(item))) return false;
         return true;
     }
     return true;
@@ -57,7 +59,9 @@ function getAvailableAutomations(item, {excludeSources = []} = {}) {
     const identifier = documentUtils.getIdentifier(item);
     const rules = documentUtils.getRules(item) ?? 'all';
     const type = item.type;
-    return constants.automations.getAutomationByIdentifier(identifier, {rules, multiple: true, type, excludeSources});
+    const sourceClass = itemUtils.getSourceClass(item, {subclass: true});
+    const sourceType = sourceClass ? sourceClass.system.type?.value ?? sourceClass.type : undefined;
+    return constants.automations.getAutomationByIdentifier(identifier, {rules, multiple: true, type, excludeSources, sourceType});
 }
 function getConfigValue(item, key) {
     return constants.automations.getConfigValue(item, key);
@@ -145,7 +149,9 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
     const identifier = documentUtils.getIdentifier(item);
     const rules = documentUtils.getRules(item);
     if (source) {
-        automation = constants.automations.getAutomationByIdentifier(identifier, {rules, source, monsterIdentifier});
+        const sourceClass = itemUtils.getSourceClass(item, {subclass: true});
+        const sourceType = sourceClass ? sourceClass.system.type?.value ?? sourceClass.type : undefined;
+        automation = constants.automations.getAutomationByIdentifier(identifier, {rules, source, monsterIdentifier, type: item.type, sourceType});
     } else {
         automation = getAppliedOrPreferredAutomation(item);
     }
@@ -161,6 +167,8 @@ async function updateItem(item, {source, monsterIdentifier, skipEvent, openSheet
         const fieldValue = genericUtils.getProperty(oldDocumentData, field);
         if (fieldValue) genericUtils.setProperty(documentData, field, fieldValue);
     });
+    const existingDescription = genericUtils.getProperty(documentData, 'system.description.value');
+    if (existingDescription) genericUtils.setProperty(documentData, 'system.description.value', itemUtils.stripDescriptionBlock(existingDescription));
     genericUtils.setProperty(documentData, 'flags.cat.automation.source', automation.source);
     genericUtils.setProperty(documentData, 'flags.cat.automation.version', automation.version);
     const defaultImages = Object.values(CONFIG.DND5E.defaultArtwork.Item);
@@ -266,7 +274,7 @@ async function getSourceDocumentByIdentifier(identifier, type) {
     for (const packId of sortedPacks) {
         const pack = game.packs.get(packId);
         if (!pack) continue;
-        const index = await pack.getIndex({fields: ['system.identifier', 'flags.cat.automation.identifier']});
+        const index = await pack.getIndex({fields: ['system.identifier', 'flags.cat.identifier']});
         const match = index.find(document => documentUtils.getIdentifier(document) === identifier);
         if (match) return await pack.getDocument(match._id);
     }
@@ -286,6 +294,15 @@ function getResolvedAnimation(document, settingKey, {source, identifier} = {}) {
     const options = {};
     if (animation.config) Object.keys(animation.config).forEach(key => options[key] = isGeneric ? getGenericAnimationConfig(document, source, identifier, settingKey, key) : getAnimationConfig(document, settingKey, key));
     return {animation, options};
+}
+async function getCompendiumDocumentByName(name, type) {
+    if (!['monster', 'item', 'spell', 'macro'].includes(type)) return;
+    let setting = Object.entries(game.settings.get('cat', type + 'Compendiums')).map(([key, value]) => ({id: key, ...value})).filter(i => i.enabled).sort((a, b) => a.priority - b.priority);
+    let result;
+    for (const data of setting) {
+        result = await compendiumUtils.getDocumentByName(data.id, name);
+        if (result) return result;
+    }
 }
 export default {
     getCurrentAutomation,
@@ -317,5 +334,6 @@ export default {
     calledEvent,
     calledEventSync,
     getAnimationConfig,
-    getResolvedAnimation
+    getResolvedAnimation,
+    getCompendiumDocumentByName
 };

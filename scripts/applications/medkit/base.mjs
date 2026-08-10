@@ -28,6 +28,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     #document;
     /** In-memory mutable copy of document.flags.cat; flushed on Save. */
     #flags;
+    #listValues = {};
     /** In-memory mutable source selection; flushed on Save. */
     #selectedSource;
     /** In-memory mutable system.source.rules; flushed on Save. */
@@ -197,6 +198,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
+        this.#listValues = {};
         context.document = this.#document;
         context.label = this.#document.metadata?.label ?? this.#document.name ?? '';
         context.medkitStatus = undefined;
@@ -254,6 +256,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         } catch (err) {
             console.warn(`CAT | Skipping malformed medkit option "${key}".`, err);
         }
+        if (option.isList && configPath) this.#listValues[configPath] = Array.isArray(value) ? value : [];
         return option;
     }
 
@@ -283,7 +286,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 const sorted = sortedOptions();
                 if (sorted.length > COMBOBOX_THRESHOLD) {
                     option.isCombobox = true;
-                    option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image}));
+                    option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image, invert: o.invertColor}));
                 } else {
                     const choices = sorted.reduce((acc, o) => { acc[o.value] = o.label; return acc; }, {});
                     option.field = new fields.StringField({label, choices, required: true, blank: false});
@@ -294,7 +297,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 const sorted = sortedOptions();
                 const selectedValues = Array.isArray(value) ? value : [];
                 option.isMultiCombobox = true;
-                option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image, selected: selectedValues.includes(o.value)}));
+                option.choices = sorted.map(o => ({value: o.value, label: o.label, image: o.image, invert: o.invertColor, selected: selectedValues.includes(o.value)}));
                 option.value = selectedValues;
                 break;
             }
@@ -550,7 +553,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     }
 
     #animationChoices(requiredInputs) {
-        let animations = constants.animations?.animations ?? [];
+        let animations = Array.from(constants.animations.animations.values());
         if (Array.isArray(requiredInputs)) {
             const required = [...requiredInputs].sort();
             animations = animations.filter(a => {
@@ -595,7 +598,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
     _animationFlagOption({key, label, tooltip, path, macroKey}) {
         const stored = foundry.utils.getProperty(this.#flags, path);
         const selection = stored && typeof stored === 'object' ? stored : undefined;
-        const animations = (constants.animations?.animations ?? []).filter(a => a.macros?.[macroKey]);
+        const animations = Array.from(constants.animations.animations.values()).filter(a => a.macros?.[macroKey]);
         return {
             key,
             name: `flags.cat.${path}`,
@@ -661,31 +664,29 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     _prepareRegisteredMacros(flagPath = 'macros') {
         if (!constants.macros) return {choices: []};
-        const all = [...(constants.macros.fnMacros ?? []), ...(constants.macros.overwriteMacros ?? [])].filter(m => !m.generic);
+        const all = constants.macros.getAllMacros({genericOnly: false});
         const sourceLabel = src => constants.automations?.getSourceName?.(src) ?? src;
-        const seen = new Map();
-        for (const m of all) {
-            const key = `${m.source}|${m.identifier}|${m.rules}`;
-            if (seen.has(key)) continue;
+        const choicesData = all.map(m => {
+            const key = m.source + '|' + m.identifier + '|' + m.rules;
             const events = Object.entries(m.macros ?? {}).filter(([, arr]) => arr?.length).map(([event]) => event);
-            seen.set(key, {
+            return {
                 value: key,
                 source: m.source,
                 identifier: m.identifier,
                 rules: m.rules,
-                label: `${m.identifier}  [${sourceLabel(m.source)} · ${m.rules}]`,
+                label: m.identifier + '  [' + sourceLabel(m.source) + ' · ' + m.rules + ']',
                 events
-            });
-        }
+            };
+        });
         const flagsMacros = foundry.utils.getProperty(this.#flags, flagPath) ?? {};
         const pickedKeys = new Set();
         for (const arr of Object.values(flagsMacros)) {
             if (!Array.isArray(arr)) continue;
-            for (const entry of arr) pickedKeys.add(`${entry.source}|${entry.identifier}|${entry.rules ?? 'all'}`);
+            for (const entry of arr) {
+                pickedKeys.add(entry.source + '|' + entry.identifier + '|' + (entry.rules ?? 'all'));
+            }
         }
-        const choices = Array.from(seen.values())
-            .map(c => ({...c, selected: pickedKeys.has(c.value)}))
-            .sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
+        const choices = choicesData.map(c => ({...c, selected: pickedKeys.has(c.value)})).sort((a, b) => a.label.localeCompare(b.label, 'en', {sensitivity: 'base'}));
         return {choices};
     }
 
@@ -743,7 +744,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             const sources = [...availableAutomations]
                 .sort((a, b) => rank(a.source) - rank(b.source))
                 .filter(a => !seen.has(a.source) && seen.add(a.source))
-                .map(a => ({value: a.source, label: labelFor(a.source)}));
+                .map(a => ({value: a.source, label: labelFor(a.source), selected: a.source === this.#selectedSource}));
             return {
                 variant: 'available',
                 isAvailable: true,
@@ -770,6 +771,8 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
                 const sourceData = this.#document._stats?.compendiumSource ? (await fromUuid(this.#document._stats.compendiumSource)) : null;
                 const updateData = sourceData?.toObject?.() ?? {};
                 genericUtils.setProperty(updateData, 'flags.cat', _del);
+                const currentDescription = genericUtils.getProperty(updateData, 'system.description.value') ?? this.#document.system?.description?.value;
+                if (currentDescription) genericUtils.setProperty(updateData, 'system.description.value', itemUtils.stripDescriptionBlock(currentDescription));
                 await documentUtils.update(this.#document, updateData, {diff: false});
             } else {
                 await automationUtils.updateItem(this.#document, {source: this.#selectedSource});
@@ -1065,7 +1068,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
             ui.notifications.error(_loc('CAT.MEDKIT.Documents.InvalidUuid'));
             return;
         }
-        const current = foundry.utils.getProperty(this.#flags, path) ?? [];
+        const current = foundry.utils.getProperty(this.#flags, path) ?? this.#listValues[path] ?? [];
         if (current.includes(entry)) return;
         foundry.utils.setProperty(this.#flags, path, [...current, entry]);
         this.render();
@@ -1076,7 +1079,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         const group = target.closest('[data-flag-path]');
         const path = group?.dataset.flagPath;
         if (!path) return;
-        const current = foundry.utils.getProperty(this.#flags, path) ?? [];
+        const current = foundry.utils.getProperty(this.#flags, path) ?? this.#listValues[path] ?? [];
         foundry.utils.setProperty(this.#flags, path, current.filter(v => v !== target.dataset.value));
         this.render();
     }
@@ -1110,7 +1113,7 @@ export default class MedkitApp extends HandlebarsApplicationMixin(ApplicationV2)
         else value = target.value;
         if (name === 'system.source.rules') {
             this.#rulesValue = value;
-        } else if (name === 'selectedSource') {
+        } else if (name === 'selectedSource' || name === 'heroSourcePick') {
             this.#selectedSource = value;
         } else if (inMultiCombobox && name === 'flags.cat.macros') {
             this._writeMacroSelection(Array.isArray(value) ? value : []);

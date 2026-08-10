@@ -317,7 +317,7 @@ class CatEvent {
                 macroConfig: {pass: this.pass, priority: 50},
                 document: null,
                 macro: function() {},
-                castData: {castLevel: 10, saveDC: 10},
+                castData: this.castData ?? {castLevel: 3, saveDC: 10},
                 macroClass: null
             });
         }
@@ -325,46 +325,45 @@ class CatEvent {
     }
 }
 class BaseWorkflowEvent extends CatEvent {
-    constructor(pass, workflow) {
+    constructor(pass) {
         super(pass);
         this.name = 'Workflow';
         this.trigger = Triggers.RollTrigger;
-        if (workflow?.targets) this.targets = workflow.targets.map(token => token.document);
     }
     get unsortedTriggers() {
         let triggers = [];
         const passName = this.pass.capitalize();
-        if (this.activity && CatEvent.hasCatFlag(this.activity)) triggers.push(new this.trigger(this.activity, 'activity' + passName));
+        if (this.activity && CatEvent.hasCatFlag(this.activity)) triggers.push(new this.trigger(this.activity, 'activity' + passName, {castData: this.castData}));
         if (this.item) {
-            if (CatEvent.hasCatFlag(this.item)) triggers.push(new this.trigger(this.item, 'item' + passName));
+            if (CatEvent.hasCatFlag(this.item)) triggers.push(new this.trigger(this.item, 'item' + passName, {castData: this.castData}));
             this.item.effects.filter(effect => effect.type === 'enchantment' && effect.isAppliedEnchantment && CatEvent.hasCatFlag(effect)).forEach(effect => {
-                triggers.push(new this.trigger(effect, 'enchantment' + passName));
+                triggers.push(new this.trigger(effect, 'enchantment' + passName, {castData: this.castData}));
             });
             const cachedForUuid = this.item.flags.dnd5e?.cachedFor;
             if (cachedForUuid && this.actor) {
                 const castActivity = fromUuidSync(cachedForUuid, {relative: this.actor});
-                if (castActivity && CatEvent.hasCatFlag(castActivity)) triggers.push(new this.trigger(castActivity, 'castEnchantment' + passName, {sourceItem: this.item}));
+                if (castActivity && CatEvent.hasCatFlag(castActivity)) triggers.push(new this.trigger(castActivity, 'castEnchantment' + passName, {sourceItem: this.item, castData: this.castData}));
             }
         }
         if (this.actor) triggers.push(...this.getActorTriggers(this.actor, 'actor' + passName));
-        if (this.token && CatEvent.hasCatFlag(this.token)) triggers.push(new this.trigger(this.token, 'token' + passName));
+        if (this.token && CatEvent.hasCatFlag(this.token)) triggers.push(new this.trigger(this.token, 'token' + passName, {castData: this.castData}));
         if (this.scene) {
             triggers.push(...this.getSceneTriggers(this.scene, 'scene' + passName));
             triggers.push(...this.getNearbyTriggers(this.scene, 'nearby' + passName));
         }
         if (this.regions) {
             this.regions.filter(region => CatEvent.hasCatFlag(region)).forEach(region => {
-                triggers.push(new this.trigger(region, 'region' + passName));
+                triggers.push(new this.trigger(region, 'region' + passName, {castData: this.castData}));
             });
         }
         if (this.level) triggers.push(...this.getLevelTriggers(this.level, 'level' + passName));
         if (this.targets?.size) {
             this.targets.forEach(token => {
                 if (!token.actor) return;
-                if (CatEvent.hasCatFlag(token)) triggers.push(new this.trigger(token, 'target' + passName, {sourceToken: token, distances: this.distances}));
+                if (CatEvent.hasCatFlag(token)) triggers.push(new this.trigger(token, 'target' + passName, {sourceToken: token, distances: this.distances, castData: this.castData}));
                 triggers.push(...this.getActorTriggers(token.actor, 'target' + passName, {sourceToken: token, distances: this.distances}));
                 token.regions.filter(region => CatEvent.hasCatFlag(region)).forEach(region => {
-                    triggers.push(new this.trigger(region, 'target' + passName, {sourceToken: token, distances: this.distances}));
+                    triggers.push(new this.trigger(region, 'target' + passName, {sourceToken: token, distances: this.distances, castData: this.castData}));
                 });
             });
         }
@@ -393,7 +392,9 @@ class WorkflowEvent extends BaseWorkflowEvent {
         this.workflow = workflow;
         this.activity = workflow.activity;
         this.item = workflow.item;
+        this.targets = workflow.targets.map(token => token.document);
         this.setContext(workflow.actor, {token: workflow.token?.document});
+        this.castData = workflow.castData;
     }
     appendData(data) {
         return {
@@ -416,6 +417,7 @@ class PreTargetingWorkflowEvent extends BaseWorkflowEvent {
     appendData(data) {
         return {
             ...super.appendData(data),
+            activity: this.activity,
             config: this.config,
             dialog: this.dialog,
             message: this.message
@@ -448,8 +450,8 @@ class MovementEvent extends CatEvent {
         this.range = range;
         this.sourceToken = sourceToken;
         this.setContext(token.actor, {token});
-        this.action = action ?? options?.cat?.movement?.action;
-        this.teleport = teleport ?? options?.cat?.movement?.teleport;
+        this.action = action;
+        this.teleport = teleport;
     }
     appendData(data) {
         return {
@@ -499,7 +501,7 @@ class RegionEvent extends CatEvent {
                 try {
                     await trigger.macro(trigger);
                 } catch (error) {
-                    Logging.addMacroError(error);
+                    Logging.addMacroError(trigger, error);
                 }
             }
         }
@@ -582,14 +584,14 @@ class CombatEvent extends CatEvent {
     }
 }
 class AuraEvent extends CatEvent {
-    constructor(token, pass, {options, targetToken} = {}) {
+    constructor(targetToken, pass, {options, eventSource} = {}) {
         super(pass);
         this.name = 'Aura';
         this.trigger = Triggers.AuraTrigger;
         this.multiResult = true;
         this.options = options;
-        this.targetToken = targetToken;
-        this.setContext(token.actor, {token});
+        this.eventSource = eventSource;
+        this.setContext(targetToken.actor, {token: targetToken});
     }
     async run() {
         Logging.addEntry('DEBUG', 'Executing ' + this.name + ' event for pass ' + this.pass);
@@ -633,7 +635,7 @@ class AuraEvent extends CatEvent {
                 try {
                     result = await trigger.macro(trigger);
                 } catch (error) {
-                    Logging.addMacroError(error);
+                    Logging.addMacroError(trigger, error);
                 }
             }
             if (result) {
@@ -651,15 +653,15 @@ class AuraEvent extends CatEvent {
     }
     get unsortedTriggers() {
         if (!this.scene) return [];
-        let triggers = this.getNearbyTriggers(this.scene, this.pass, {targetToken: this.targetToken, options: this.options});
+        let triggers = this.getNearbyTriggers(this.scene, this.pass, {options: this.options});
         triggers = triggers.filter(trigger => trigger.fnMacros.length || trigger.embeddedMacros.length);
         return triggers;
     }
     appendData(data) {
         return {
             ...super.appendData(data),
-            targetToken: this.targetToken,
-            options: this.options
+            options: this.options,
+            eventSource: this.eventSource
         };
     }
 }
@@ -727,23 +729,20 @@ class RestEvent extends CatEvent {
     }
 }
 class BaseRollEvent extends CatEvent {
-    constructor(actor, pass, {config, dialog, message, options, roll} = {}) {
+    constructor(actor, pass, data = {}) {
         super(pass);
-        this.config = config;
-        this.dialog = dialog;
-        this.message = message;
-        this.options = options;
-        this.roll = roll;
+        this.data = data;
+        this.config = data.config;
+        this.dialog = data.dialog;
+        this.message = data.message;
+        this.options = data.options;
+        this.roll = data.roll;
         this.setContext(actor);
     }
     appendData(data) {
         return {
             ...super.appendData(data),
-            config: this.config,
-            dialog: this.dialog,
-            message: this.message,
-            options: this.options,
-            roll: this.roll
+            ...this.data
         };
     }
 }

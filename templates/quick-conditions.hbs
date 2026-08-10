@@ -1,5 +1,6 @@
 <div class="cat-embedded-macros-shell">
     <header class="cat-embedded-macros-header">
+        <i class="fa-solid fa-shield-cat cat-dialog-icon" aria-hidden="true"></i>
         <span class="cat-embedded-macros-title">{{title}}</span>
         <button type="button" class="cat-app-header-button cat-medkit-header-button" data-action="close" data-tooltip="{{localize 'Close'}}" aria-label="{{localize 'Close'}}">
             <i class="fas fa-xmark" aria-hidden="true"></i>
@@ -16,19 +17,19 @@
                 <div class="{{class}}" id="{{id}}">
                     {{#each inputs}}
                         {{#if (eq type 'label')}}
-                            {{#labelP this}}{{/labelP}}
+                            {{{cat-labelP this}}}
                         {{else if (eq type 'button')}}
-                            {{#button this}}{{/button}}
+                            {{{cat-button this}}}
                         {{else if (eq type 'select')}}
-                            {{#selectDetailed this}}{{/selectDetailed}}
+                            {{{cat-selectDetailed this}}}
                         {{else if (eq type 'selectMultiple')}}
-                            {{#selectMultiple this}}{{/selectMultiple}}
+                            {{{cat-selectMultiple this}}}
                         {{else if (eq type 'content')}}
-                            {{#contentP this}}{{/contentP}}
+                            {{{cat-contentP this}}}
                         {{else if (eq type 'number')}}
-                            {{#numberInput this}}{{/numberInput}}
+                            {{{cat-numberInput this}}}
                         {{else if (eq type 'text')}}
-                            {{#textInput this}}{{/textInput}}
+                            {{{cat-textInput this}}}
                         {{/if}}
                     {{/each}}
                 </div>
@@ -38,7 +39,7 @@
             <fieldset id="add" class="quick-conditions-fieldset-add">
                 <legend id="add-legend">{{localize 'CAT.QuickConditions.Legend'}}</legend>
                 {{#each inputs.add}}
-                    {{#button this}}{{/button}}
+                    {{{cat-button this}}}
                 {{/each}}
             </fieldset>
             {{/if}}

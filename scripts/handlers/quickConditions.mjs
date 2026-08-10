@@ -1,5 +1,4 @@
 import QuickConditions from '../applications/quick-conditions.mjs';
-import {genericUtils} from '../utilities/_module.mjs';
 const {Collection} = foundry.utils;
 function onRender(application, element) {
     const names = ['useConditionText', 'effectConditionText'];
@@ -90,7 +89,27 @@ function numberInput(input) {
     html += `>`;
     return html;
 }
-const helpers = {button, selectDetailed, selectMultiple, contentP, textInput, labelP, numberInput};
+function wrapIf(condition, tagName, options) {
+    if (!options) {
+        options = tagName;
+        tagName = null;
+    }
+    const content = options.fn(this);
+    if (!condition) return content;
+    const tag = typeof tagName === 'string' ? tagName : 'div';
+    const cssClass = options.hash.class ? ` class="${options.hash.class}"` : '';
+    return new Handlebars.SafeString(`<${tag}${cssClass}>${content}</${tag}>`);
+}
+const helpers = {
+    'cat-button': button,
+    'cat-selectDetailed': selectDetailed,
+    'cat-selectMultiple': selectMultiple,
+    'cat-contentP': contentP,
+    'cat-textInput': textInput,
+    'cat-labelP': labelP,
+    'cat-numberInput': numberInput,
+    'cat-wrapIf': wrapIf
+};
 function onClick(event) {
     const data = this;
     data.fieldId = event.target.id;

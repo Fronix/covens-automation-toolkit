@@ -4,6 +4,11 @@ function getActionType(workflow) {
     if (!workflow.activity) return;
     return workflow.activity.getActionType(workflow.attackMode);
 }
+/**
+ * @param {MidiQOL.Workflow} workflow 
+ * @param {'attack'|'meleeAttack'|'rangedAttack'|'weaponAttack'|'spellAttack'|'rangedWeaponAttack'|'meleeWeaponAttack'|'rangedSpellAttack'|'meleeSpellAttack'} type 
+ * @returns {boolean}
+ */
 function isAttackType(workflow, type = 'attack') {
     if (!workflow.activity) return;
     let field;
@@ -150,35 +155,46 @@ function negateDamageItemDamage(ditem) {
     ditem.damageDetail.forEach(i => i.value = 0);
     ditem.rawDamageDetail.forEach(i => i.value = 0);
 }
+function modifyDamageAppliedFlat(ditem, modificationAmount, {type = 'none', multiplier = 1} = {}) {
+    if (multiplier === 'auto') {
+        multiplier = ditem.damageDetail[0].active.multiplier;
+        const actor = fromUuidSync(ditem.actorUuid);
+        if (actor) {
+            if (actorUtils.checkTrait(actor, 'di', type)) modificationAmount = 0;
+            if (actorUtils.checkTrait(actor, 'dr', type)) modificationAmount = Math.floor(modificationAmount / 2);
+        }
+    }
+    if (modificationAmount < 0) modificationAmount = Math.max(modificationAmount, -ditem.hpDamage - ditem.tempDamage);
+    MidiQOL.modifyDamageBy({damageItem: ditem, value: modificationAmount, multiplier, type});
+    ditem.rawDamageDetail.push({value: modificationAmount, type});
+}
+function isSustainedRoll(workflow) {
+    if (['workflowOptions.isOverTime', 'activity.isOverTimeFlag', 'activity.midiProperties.automationOnly'].some(p => genericUtils.getProperty(workflow, p))) return true;
+    return workflow.item?.type === 'spell' && (workflow.activity?.consumption?.spellSlot ?? false);
+}
+function setDamageItemDamage(ditem, damageAmount, adjustRaw = true) {
+    const tempDamage = damageAmount > 0 ? Math.min(ditem.oldTempHP ?? 0, damageAmount) : 0;
+    const hpDamage = damageAmount - tempDamage;
+    ditem.totalDamage = damageAmount;
+    ditem.hpDamage = hpDamage;
+    ditem.tempDamage = tempDamage;
+    ditem.newHP = ditem.oldHP - hpDamage;
+    ditem.newTempHP = (ditem.oldTempHP ?? 0) - tempDamage;
+    ditem.damageDetail.forEach(i => i.value = 0);
+    ditem.damageDetail[0].value = damageAmount;
+    if (adjustRaw) {
+        ditem.rawDamageDetail.forEach(i => i.value = 0);
+        ditem.rawDamageDetail[0].value = damageAmount;
+    }
+}
 function setWorkflowProperty(workflow, path, value) {
     genericUtils.setProperty(workflow, 'cat.' + path, value);
 }
 function getWorkflowProperty(workflow, path) {
     return genericUtils.getProperty(workflow, 'cat.' + path);
 }
-function modifyDamageAppliedFlat(ditem, modificationAmount, {type = 'none', multiplier = 1} = {}) {
-    if (modificationAmount < 0) modificationAmount = Math.max(modificationAmount, -ditem.hpDamage - ditem.tempDamage);
-    ditem.damageDetail.push({
-        value: modificationAmount,
-        active: {multiplier},
-        type
-    });
-    ditem.rawDamageDetail?.push({
-        value: modificationAmount,
-        type
-    });
-    const actualTotal = ditem.totalDamage + modificationAmount;
-    ditem.totalDamage = actualTotal;
-    const newTempHP = ditem.oldTempHP - actualTotal;
-    ditem.newTempHP = Math.max(newTempHP, 0);
-    ditem.newHP = Math.clamp(ditem.oldHP + Math.min(0, newTempHP), 0, ditem.oldHP);
-    ditem.hpDamage = ditem.oldHP - ditem.newHP;
-}
 async function applyDamage(tokens, value, damageType) {
     return await MidiQOL.applyTokenDamage([{damage: value, type: damageType}], value, new Set(tokens));
-}
-function getDamageTypes(damageRolls) {
-    return new Set(damageRolls.map(roll => roll.options.type));
 }
 async function bonusDamage(workflow, formula, {ignoreCrit = false, damageType = workflow.defaultDamageType} = {}) {
     formula = String(formula);
@@ -186,6 +202,44 @@ async function bonusDamage(workflow, formula, {ignoreCrit = false, damageType = 
     const roll = await new CONFIG.Dice.DamageRoll(formula, workflow.activity.getRollData(), {type: damageType}).evaluate();
     workflow.damageRolls.push(roll);
     await workflow.setDamageRolls(workflow.damageRolls);
+}
+function getDamageTypes(damageRolls) {
+    return new Set(damageRolls.map(i => i.options.type));
+}
+function getCastLevel(workflow) {
+    const castData = workflow.castData ?? itemUtils.getSavedCastData(workflow.item);
+    if (!castData) return;
+    return Math.max(castData.castLevel ?? -1, castData.baseLevel ?? -1);
+}
+function setActivity(workflow, activityData) {
+    workflow.item = workflow.item.clone({['system.activities.' + workflow.activity.id]: activityData}, {keepId: true});
+    workflow.activity = workflow.item.system.activities.get(workflow.activity.id);
+}
+async function bonusAttack(workflow, formula) {
+    let roll = await rollUtils.addToRoll(workflow.attackRoll, formula, {rollData: workflow.activity.getRollData()});
+    await workflow.setAttackRoll(roll);
+}
+function applyWorkflowDamage(sourceToken, damageRoll, damageType, targets, {flavor, itemCardId = 'new', sourceItem} = {}) {
+    let itemData = {};
+    if (sourceItem) {
+        itemData = {
+            name: sourceItem.name,
+            img: sourceItem.img,
+            type: sourceItem.type
+        };
+    }
+    return new MidiQOL.DamageOnlyWorkflow(sourceToken.actor, sourceToken.object, damageRoll.total, damageType, targets.map(t => t.object), damageRoll, {flavor, itemCardId, itemData});
+}
+/**
+ * @param {MidiQOL.Workflow} workflow 
+ * @param {foundry.documents.TokenDocument[]|Set<foundry.documents.TokenDocument>} targets 
+ * @param {string} userId 
+ */
+async function updateTargets(workflow, targets, userId = game.user.id) {
+    workflow.targets = new Set(targets);
+    const ids = targets.map(t => t.id);
+    if (userId === game.user.id) canvas.tokens?.setTargets(ids);
+    else await queryUtils.query('updateTargets', userId, {ids});
 }
 export default {
     getActionType,
@@ -197,10 +251,17 @@ export default {
     syntheticItemRoll,
     syntheticItemDataRoll,
     negateDamageItemDamage,
+    modifyDamageAppliedFlat,
+    setDamageItemDamage,
+    isSustainedRoll,
     setWorkflowProperty,
     getWorkflowProperty,
-    applyDamage,
+    bonusDamage,
     getDamageTypes,
-    modifyDamageAppliedFlat,
-    bonusDamage
+    getCastLevel,
+    setActivity,
+    bonusAttack,
+    applyWorkflowDamage,
+    updateTargets,
+    applyDamage
 };

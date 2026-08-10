@@ -284,6 +284,38 @@
         "general": {
           "Label": "General",
           "Tooltip": "General settings."
+        },
+        "homebrew": {
+          "Label": "Homebrew",
+          "Tooltip": "Optional homebrew adjustments to the automation."
+        },
+        "mechanics": {
+          "Label": "Mechanics",
+          "Tooltip": "How the automation behaves mechanically."
+        },
+        "utility": {
+          "Label": "Utility",
+          "Tooltip": "General-purpose utility automation."
+        },
+        "targeting": {
+          "Label": "Targeting",
+          "Tooltip": "How the automation selects targets."
+        },
+        "damage": {
+          "Label": "Damage",
+          "Tooltip": "Damage adjustments applied by the automation."
+        },
+        "movement": {
+          "Label": "Movement",
+          "Tooltip": "Movement effects applied by the automation."
+        },
+        "summons": {
+          "Label": "Summons",
+          "Tooltip": "Summoned creatures and their configuration."
+        },
+        "animations": {
+          "Label": "Animations",
+          "Tooltip": "Visual animations played by the automation."
         }
       },
       "Documents": {
@@ -508,13 +540,30 @@
         "NoMatches": "No matches"
       },
       "HitDieLabel": "{className}: {remaining}/{max} {denomination}",
-      "Use": "Use {itemName}?",
+      "SkipDeadAndUnconscious": "Skip Dead and Unconscious",
       "Total": "Total",
       "UnknownTarget": "Unknown Target",
-      "SkipDeadAndUnconscious": "Skip Dead and Unconscious"
+      "Use": "Use {document}?",
+      "UseExtraCost": "Use {document}? (Costs {quantity} {resource})",
+      "UseOn": "Use {document} on {target}?",
+      "UseRecover": "Use {document} to recover {spent}/{max} {resource}?",
+      "UseRollTotal": "Use {document}? (Roll Total: {rollTotal})",
+      "UseForRollTotal": "Use {document} for {name}? (Roll Total: {rollTotal})"
     },
     "Common": {
       "Cover": "{amount} {cover}"
+    },
+    "Skill": {
+      "Title": "Skill Check"
+    },
+    "Check": {
+      "Title": "Ability Check"
+    },
+    "Save": {
+      "Title": "Saving Throw"
+    },
+    "Tool": {
+      "Title": "Tool Check"
     },
     "Manual": {
       "MethodLabel": "Coven's Automation Toolkit",
@@ -813,6 +862,32 @@
     },
     "Movement": {
       "Forced": "Forced Movement"
+    },
+    "Error": {
+      "OutdatedSequencer": "Sequencer is out of date! In order to use animations, CAT requires a minimum of version {minSequencerVersion}"
+    },
+    "Troubleshooter": {
+      "BothJB2A": "JB2A Premium and JB2A Free detected. Please remove or disable the free version."
+    },
+    "Smite": {
+      "Title": "Smite",
+      "Context": "Cast a spell?"
+    },
+    "Summon": {
+      "DeadTitle": "CAT Summons",
+      "DeadContext": "Summon creature {name} reached 0 hp, delete actor and token?"
+    },
+    "OptionalBonus": {
+      "Content": "Choose and configure bonuses for this roll.",
+      "Contextual": "Contextual Bonuses",
+      "Invalid": "Bonus disabled: {reason}",
+      "InvalidResources": "not enough resources!",
+      "Optional": "Optional Bonuses",
+      "Scaleable": "Scalable",
+      "Scaling": "Scaling",
+      "Targeted": "Targeted",
+      "Targets": "Targets",
+      "Title": "Optional Bonus"
     }
   }
 }

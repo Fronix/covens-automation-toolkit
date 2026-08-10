@@ -3,11 +3,8 @@ import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
 async function dialog({title, content, inputs, buttons, config}) {
     return await DialogApp.dialog(title, content, inputs, buttons, config);
 }
-async function queuedDialog({title, content, inputs, buttons, config, reason}) {
-    return await dialogQueue.showDialog(async (...args) => {
-        if (reason) ui.notifications.info(reason);
-        return await DialogApp.dialog(...args);
-    }, title, content, inputs, buttons, config);
+async function queuedDialog({title, content, inputs, buttons, config}) {
+    return await dialogQueue.showDialog(async (...args) => await DialogApp.dialog(...args), title, content, inputs, buttons, config);
 }
 async function createEffects({uuid, effectDatas, effectOptions}) {
     const document = await fromUuid(uuid);
@@ -84,6 +81,9 @@ async function moveToken({uuid, waypoints, options}) {
     if (!token) return;
     return await token.move(waypoints, options);
 }
+async function updateTargets({ids}) {
+    canvas.tokens?.setTargets(ids);
+}
 function registerQueries() {
     const handlers = {
         createEffects,
@@ -99,7 +99,8 @@ function registerQueries() {
         createFolder,
         manualRoll,
         modifyBatch,
-        moveToken
+        moveToken,
+        updateTargets
     };
     for (const [name, fn] of Object.entries(handlers)) {
         globalThis.CONFIG.queries['cat.' + name] = fn;
@@ -120,5 +121,6 @@ export default {
     createFolder,
     manualRoll,
     modifyBatch,
-    moveToken
+    moveToken,
+    updateTargets
 };

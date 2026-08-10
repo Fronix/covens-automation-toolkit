@@ -3,6 +3,12 @@ import {RegisteredAutomations} from './automations.mjs';
 import {RegisteredScales} from './scales.mjs';
 import {RegisteredAnimations} from './animation.mjs';
 import {SummonsManager} from './summons.mjs';
+import {default as Triggers} from './trigger.mjs';
+const rules = {
+    all: 'all',
+    2014: '2014',
+    2024: '2024'
+};
 const workflowPasses = {
     preTargeting: 'preTargeting',
     preItemRoll: 'preItemRoll',
@@ -15,11 +21,14 @@ const workflowPasses = {
     attackRollComplete: 'attackRollComplete', // Finalized attack roll, no adjustments can be made here.
     savesComplete: 'savesComplete', // Can adjust the hitTargets and failedSaves set here (not often used).
     damageRoll: 'damageRoll', // Regular adjustments to damage rolls, such as re-rolling them or editing the formula. Do not re-roll damage after this pass.
+    smite: 'smite', // Smite spells.
+    optionalBonusDamage: 'optionalBonusDamage', // Combined optional bonus damage dialog.
+    contextualBonusDamage: 'contextualBonusDamage', // Combined bonus damage dialog, see above.
     damageRollBonuses: 'damageRollBonuses', // Add bonuses to damage rolls.
     damageRollComplete: 'damageRollComplete', // Finalized damage rolls, no adjustments should be made here.
-    utilityRoll: 'utilityRoll', // Regular adjusments to utility rolls, such as re-rolling them or editing the formula. Do not re-roll an attack after this pass.
+    utilityRoll: 'utilityRoll', // Regular adjustments to utility rolls, such as re-rolling them or editing the formula. Do not re-roll after this pass.
     utilityRollBonuses: 'utilityRollBonuses', // Add bonuses to utility rolls.
-    utilityRollComplete: 'utilityRollComplete', // Finalized utility rolls, not adjustments should be made here.
+    utilityRollComplete: 'utilityRollComplete', // Finalized utility rolls, no adjustments should be made here.
     damage: 'damage', // Regular adjustments to target damage item.
     damageBonuses: 'damageBonuses', // Bonus damage to specific targets.
     damageFlatReductions: 'damageFlatReductions', // Flat reductions of damage to specific targets.
@@ -288,6 +297,85 @@ const massApplyExcludeSources = [
     'dnd5e',
     'dnd-players-handbook'
 ];
+const damageIcons = {
+    acid: 'icons/magic/acid/projectile-faceted-glob.webp',
+    bludgeoning: 'icons/magic/earth/projectiles-stone-salvo-gray.webp',
+    cold: 'icons/magic/air/wind-tornado-wall-blue.webp',
+    fire: 'icons/magic/fire/beam-jet-stream-embers.webp',
+    force: 'icons/magic/sonic/projectile-sound-rings-wave.webp',
+    lightning: 'icons/magic/lightning/bolt-blue.webp',
+    necrotic: 'icons/magic/unholy/projectile-bolts-salvo-pink.webp',
+    piercing: 'icons/skills/melee/strike-polearm-light-orange.webp',
+    poison: 'icons/magic/death/skull-poison-green.webp',
+    psychic: 'icons/magic/control/fear-fright-monster-grin-red-orange.webp',
+    radiant: 'icons/magic/holy/projectiles-blades-salvo-yellow.webp',
+    slashing: 'icons/skills/melee/strike-sword-gray.webp',
+    thunder: 'icons/magic/sonic/explosion-shock-wave-teal.webp',
+    no: 'icons/svg/cancel.svg'
+};
+const tempConditionIcon = 'icons/magic/time/arrows-circling-green.webp';
+const itemIconOverrides = {
+    feat: 'systems/dnd5e/icons/svg/items/feature.svg'
+};
+const methodIconOverrides = {
+    atwill: 'icons/magic/unholy/hands-cloud-light-pink.webp',
+    innate: 'icons/magic/light/hand-sparks-glow-yellow.webp',
+    ritual: 'systems/dnd5e/icons/svg/items/spell.svg',
+    spell: 'systems/dnd5e/icons/spell-tiers/spell9.webp'
+};
+const abilityOptions = () => Object.entries(CONFIG.DND5E.abilities).map(i => ({label: i[1].label, value: i[0], image: i[1].icon}));
+const armorOptions = () => Object.entries(CONFIG.DND5E.armorTypes).map(i => ({label: i[1], value: i[0]}));
+const creatureTypeOptions = () => Object.entries(CONFIG.DND5E.creatureTypes).map(i => ({label: i[1].label, value: i[0], image: i[1].icon}));
+const damageTypeOptions = () => Object.entries(CONFIG.DND5E.damageTypes).map(i => ({label: i[1].label, value: i[0], image: damageIcons[i[0]] ?? i[1].icon, invertColor: ['midi-none', 'none', 'vitality'].includes(i[0])}));
+const diceSizeOptions = () => [4, 6, 8, 10, 12, 20].map(i => ({label: `d${i}`, value: `d${i}`, image: `systems/dnd5e/icons/svg/dice/d${i}.svg`}));
+const healingTypeOptions = () => Object.entries(CONFIG.DND5E.healingTypes).map(i => ({label: i[1].label, value: i[0], image: i[1].icon, invertColor: i[0] === 'vitality'}));
+const itemProperties = () => Object.entries(CONFIG.DND5E.itemProperties).map(i => ({label: i[1].label, value: i[0]}));
+const physicalItemTypes = () => Object.entries(Item.implementation.compendiumBrowserTypes().physical.children)
+    .map(i => ({label: _loc(i[1].label), value: i[0], image: `systems/dnd5e/icons/svg/items/${i[0]}.svg`}));
+const skillOptions = () => Object.entries(CONFIG.DND5E.skills).map(i => ({label: i[1].label, value: i[0], image: i[1].icon}));
+const spellMethodOptions = () => Object.entries(CONFIG.DND5E.spellcasting).map(i => ({label: i[1].label, value: i[0], image: methodIconOverrides[i[0]] ?? i[1].img}));
+const spellSchoolOptions = () => Object.entries(CONFIG.DND5E.spellSchools).map(i => ({label: i[1].label, value: i[0], image: i[1].icon, invertColor: true}));
+const spellSlotOptions = () => Object.entries(CONFIG.DND5E.spellLevels).map(i => i[0] == 0 ? 
+    {label: _loc('None'), value: i[0]} : 
+    {label: i[1], value: i[0], image: `systems/dnd5e/icons/spell-tiers/${CONFIG.DND5E.spellcasting.spell.getSpellSlotKey(i[0])}.webp`}
+);
+const statusOptions = () => CONFIG.statusEffects.map(i => ({label: _loc(i.name ?? i.label ?? i.id), value: i.id, image: i.img ?? i.icon}));
+const usableItemTypes = () => ['consumable', 'equipment' ,'feat', 'loot', 'spell', 'tool', 'weapon']
+    .map(i => ({label: _loc(CONFIG.Item.typeLabels[i]), value: i, image: itemIconOverrides[i] ?? `systems/dnd5e/icons/svg/items/${i}.svg`}));
+const meleeWeapons = [];
+const rangedWeapons = [];
+const tools = [];
+const weapons = [];
+const meleeWeaponOptions = () => meleeWeapons;
+const rangedWeaponOptions = () => rangedWeapons;
+const toolOptions = () => tools;
+const weaponOptions = () => weapons;
+export async function getPackConstants() {
+    const weaponMap = CONFIG.DND5E.weaponTypeMap;
+    for (const [id, uuid] of Object.entries(CONFIG.DND5E.weaponIds)) {
+        const weapon = await fromUuid(uuid);
+        if (!weapon) continue;
+        const entry = {value: id, label: weapon.name, image: weapon.img};
+        weapons.push(entry);
+        if (weaponMap[weapon.system.type.value] === 'melee') meleeWeapons.push(entry);
+        else if (weaponMap[weapon.system.type.value] === 'ranged') rangedWeapons.push(entry);
+    }
+    for (const [id, {id: uuid}] of Object.entries(CONFIG.DND5E.tools)) {
+        const tool = await fromUuid(uuid);
+        if (!tool) continue;
+        tools.push({value: id, label: tool.name, image: tool.img});
+    }
+}
+const cachedTypes = new Set();
+function triggerTypes() {
+    if (cachedTypes.size) return cachedTypes;
+    for (const cls of Object.values(Triggers)) {
+        const type = cls.type;
+        if (!type) continue;
+        cachedTypes.add(type);
+    }
+    return cachedTypes;
+}
 export default {
     /** @type {RegisteredMacros} */
     macros: undefined,
@@ -301,6 +389,7 @@ export default {
     summons: undefined,
     alternateAttributes: undefined,
     gameReady: false,
+    rules,
     workflowPasses,
     workflowHookNames,
     movementPasses,
@@ -338,5 +427,26 @@ export default {
     getItemKeepPaths,
     summonPasses,
     tokenHookNames,
-    massApplyExcludeSources
+    massApplyExcludeSources,
+    damageIcons,
+    tempConditionIcon,
+    armorOptions,
+    abilityOptions,
+    creatureTypeOptions,
+    damageTypeOptions,
+    diceSizeOptions,
+    healingTypeOptions,
+    itemProperties,
+    meleeWeaponOptions,
+    physicalItemTypes,
+    rangedWeaponOptions,
+    statusOptions,
+    skillOptions,
+    spellMethodOptions,
+    spellSchoolOptions,
+    spellSlotOptions,
+    toolOptions,
+    triggerTypes,
+    usableItemTypes,
+    weaponOptions
 };

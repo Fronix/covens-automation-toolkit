@@ -1,22 +1,31 @@
 import DialogApp, {dialogQueue} from '../applications/dialog.mjs';
-import {queryUtils, tokenUtils, automationUtils} from './_module.mjs';
+import {queryUtils, tokenUtils, automationUtils, uiUtils} from './_module.mjs';
+import constants from '../lib/constants.mjs';
+import {DamageBonus} from '../lib/_module.mjs';
+
+/**
+ * @param {foundry.documents.TokenDocument} token 
+ * @param {object} [options]
+ * @param {boolean} [options.hide]
+ * @param {object} [options.counter]
+ * @param {number} [options.counter.value]
+ * @returns 
+ */
+function getTokenName(token, {hide, counter} = {}) {
+    if (!hide || token.disposition > 0) return token.name;
+    const name = _loc('CAT.Dialog.UnknownTarget');
+    return Number.isNumeric(counter?.value) ? name + '(' + counter.value++ + ')' : name;
+}
 
 async function runDialog(userId, title, content, inputs, buttons, config) {
     if (userId === game.user.id) return await DialogApp.dialog(title, content, inputs, buttons, config);
     return await queryUtils.query('dialog', game.users.get(userId), {title, content, inputs, buttons, config}, 300000);
 }
-async function runQueuedDialog(userId, title, content, inputs, buttons, config, reason) {
+async function runQueuedDialog(userId, title, content, inputs, buttons, config) {
     if (userId === game.user.id) {
-        return await dialogQueue.showDialog(async (...args) => {
-            if (reason) ui.notifications.info(reason);
-            return await DialogApp.dialog(...args);
-        }, title, content, inputs, buttons, config);
+        return await dialogQueue.showDialog(async (...args) => await DialogApp.dialog(...args), title, content, inputs, buttons, config);
     }
-    return await queryUtils.query('queuedDialog', game.users.get(userId), {title, content, inputs, buttons, config, reason}, 300000);
-}
-async function confirm(title, content, {userId = game.user.id, buttons = 'yesNo'} = {}) {
-    let selection = await runDialog(userId, title, content, [], buttons);
-    return selection?.buttons;
+    return await queryUtils.query('queuedDialog', game.users.get(userId), {title, content, inputs, buttons, config}, 300000);
 }
 async function buttonDialog(title, content, buttons, {displayAsRows = true, userId = game.user.id, sort = null} = {}) {
     let inputs = [
@@ -63,10 +72,16 @@ async function selectDialog(title, content, input = {label: 'Label', name: 'iden
     let result = await runDialog(userId, title, content, inputs, buttons);
     return result?.[input.name];
 }
-async function selectDocumentDialog(title, content, documents, {max = 1, displayTooltips = false, sort = null, userId = game.user.id, addNoneDocument = false, showCR = false, showSpellLevel = false, showUses = false, displayReference = false, combobox = false, checkbox = false, weights = {}, maxes = {}} = {}) {
-    if (sort === 'alphabetical') documents = [...documents].sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
-    else if (sort === 'cr') documents = [...documents].sort((a, b) => (a.system?.details?.cr ?? 0) - (b.system?.details?.cr ?? 0));
-    else if (sort === 'level') documents = [...documents].sort((a, b) => (a.system?.level ?? 0) - (b.system?.level ?? 0) || a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
+async function selectDocumentDialog(title, content, documents, {max = 1, displayTooltips = false, sort = null, userId = game.user.id, addNoneDocument = false, showCR = false, showSpellLevel = false, showUses = false, displayReference = false, combobox = false, checkbox = false, weights = {}, maxes = {}, validate = null, tags = {}, selects = {}, locked = new Set(), keys = null, labels = {}} = {}) {
+    let sortCmp = sort === 'alphabetical' ? (a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'})
+        : sort === 'cr' ? (a, b) => (a.system?.details?.cr ?? 0) - (b.system?.details?.cr ?? 0)
+            : sort === 'level' ? (a, b) => (a.system?.level ?? 0) - (b.system?.level ?? 0) || a.name.localeCompare(b.name, 'en', {sensitivity: 'base'})
+                : null;
+    if (sortCmp) {
+        let order = documents.map((d, i) => i).sort((a, b) => sortCmp(documents[a], documents[b]));
+        documents = order.map(i => documents[i]);
+        if (keys) keys = order.map(i => keys[i]);
+    }
     let isCompendiumDoc = !documents[0]?.id;
     let docKey = d => isCompendiumDoc ? (d.uuid ?? d.actor?.uuid) : (d.id ?? d._id ?? d.actor?.id);
     let resolveDoc = async key => isCompendiumDoc ? await fromUuid(key) : documents.find(d => docKey(d) === key);
@@ -75,20 +90,22 @@ async function selectDocumentDialog(title, content, documents, {max = 1, display
         let s = ['th', 'st', 'nd', 'rd'], v = n % 100;
         return n + (s[(v - 20) % 10] || s[v] || s[0]);
     };
-    let buildEntry = doc => {
-        let tags = [];
-        if (showCR) tags.push(_loc('DND5E.CRLabel', {cr: dnd5e.utils.formatCR(doc.system?.details?.cr ?? 0, {narrow: false})}));
-        if (showSpellLevel) tags.push(ordinal(doc.system?.level ?? 0));
+    let buildEntry = (doc, id) => {
+        let tagList = [];
+        if (showCR) tagList.push(_loc('DND5E.CRLabel', {cr: dnd5e.utils.formatCR(doc.system?.details?.cr ?? 0, {narrow: false})}));
+        if (showSpellLevel) tagList.push(ordinal(doc.system?.level ?? 0));
         let uses = doc.system?.uses ?? doc.uses;
-        if (showUses && uses?.max) tags.push(`${uses.value ?? '?'}/${uses.max}`);
-        let label = doc.name + (doc.system?.linkedActivity ? ' (' + doc.system.linkedActivity.item.name + ')' : '');
-        return {label, tag: tags.join(' · ')};
+        if (showUses && uses?.max) tagList.push(`${uses.value ?? '?'}/${uses.max}`);
+        let extraTag = tags[id ?? doc.id ?? doc._id ?? doc.uuid];
+        if (extraTag) tagList.push(extraTag);
+        let label = (labels?.[id] ?? doc.name) + (doc.system?.linkedActivity ? ' (' + doc.system.linkedActivity.item.name + ')' : '');
+        return {label, tag: tagList.join(' · ')};
     };
     let buildLabel = doc => {
         let {label, tag} = buildEntry(doc);
         return tag ? `${label} [${tag}]` : label;
     };
-    let hasTag = showCR || showSpellLevel || showUses;
+    let hasTag = showCR || showSpellLevel || showUses || Object.keys(tags).length > 0;
     let widthCfg = hasTag ? {width: 440} : undefined;
     let inputs, result;
     if (max === 1) {
@@ -108,7 +125,7 @@ async function selectDocumentDialog(title, content, documents, {max = 1, display
             name: docKey(d),
             options: {
                 image: d.img,
-                tooltip: displayTooltips ? d.system.description.value.replace(/<[^>]*>?|@UUID\[.*?\]{(.*?)}/gm, '$1') : undefined,
+                tooltip: displayTooltips ? d.system?.description?.value?.replace(/<[^>]*>?|@UUID\[.*?\]{(.*?)}/gm, '$1') : undefined,
                 reference: (displayReference && d.reference) ? d.reference : undefined
             }
         }));
@@ -142,25 +159,166 @@ async function selectDocumentDialog(title, content, documents, {max = 1, display
             amount: Number(amount)
         }));
     }
-    let inputFields = documents.map(d => ({
-        label: buildLabel(d),
-        name: multiKey(d),
-        options: {
-            image: d.img,
-            tooltip: displayTooltips ? d.system.description.value.replace(/<[^>]*>?|@UUID\[.*?\]{(.*?)}/gm, '$1') : undefined,
-            minAmount: 0,
-            maxAmount: maxes?.[multiKey(d)] ?? max,
-            weight: weights?.[multiKey(d)] ?? 1
-        }
-    }));
+    let idOf = i => keys ? keys[i] : multiKey(documents[i]);
+    let inputFields = documents.map((d, i) => {
+        let id = idOf(i);
+        let {label, tag} = buildEntry(d, id);
+        let isLocked = locked.has(id);
+        return {
+            label: checkbox ? label : buildLabel(d),
+            name: id,
+            options: {
+                image: d.img,
+                tooltip: displayTooltips ? d.system?.description?.value?.replace(/<[^>]*>?|@UUID\[.*?\]{(.*?)}/gm, '$1') : undefined,
+                hint: checkbox ? tag : undefined,
+                select: checkbox ? selects?.[id] : undefined,
+                locked: isLocked,
+                isChecked: isLocked,
+                minAmount: 0,
+                maxAmount: maxes?.[id] ?? max,
+                weight: weights?.[id] ?? 1
+            }
+        };
+    });
+    let keyToDoc = new Map(documents.map((d, i) => [idOf(i), d]));
     inputs = [[checkbox ? 'checkbox' : 'selectAmount', inputFields, {displayAsRows: true, totalMax: max}]];
-    result = await runDialog(userId, title, content, inputs, 'okCancel', {height: 'auto'});
+    result = await runDialog(userId, title, content, inputs, 'okCancel', {height: 'auto', validate});
     if (!result?.buttons) return false;
     delete result.buttons;
-    return Object.entries(result).map(([key, value]) => ({
-        document: documents.find(d => multiKey(d) === key),
-        amount: Number(value)
-    }));
+    return Object.entries(result).map(([key, value]) => {
+        let document = keyToDoc.get(key);
+        if (!document) return null;
+        return {document, key, amount: Number(value), select: result['sel-' + key]};
+    }).filter(i => i);
+}
+/**
+ * 
+ * @param {DamageBonus[]} bonuses 
+ * @param {object} [options]
+ * @param {foundry.documents.TokenDocument[]|Set<foundry.documents.TokenDocument>} [options.targets]
+ * @param {MidiQOL.Workflow} [options.workflow]
+ * @param {string} [options.title]
+ * @param {string} [options.content]
+ */
+async function selectScaledDocument(bonuses, {targets, workflow, title = 'CAT.OptionalBonus.Title', content = 'CAT.OptionalBonus.Content'} = {}) {
+    if (!bonuses.length) return false;
+    bonuses = bonuses.sort((a, b) => a.name.localeCompare(b.name, 'en', {sensitivity: 'base'}));
+    const validateAll = context => {
+        DamageBonus.ValidateAll(bonuses, {workflow});
+        for (const bonusContext of context) {
+            const index = bonusContext.name.match(/\d+/)[0];
+            const bonus = bonuses[index];
+            bonusContext.isChecked = bonus.active;
+            bonusContext.hints = bonus.validateHints;
+        }
+    };
+    const tagLabel = key => CONFIG.DND5E.activityActivationTypes[key]?.label ?? CONFIG.DND5E.activityConsumptionTypes[key]?.label ?? key;
+    const sliderChange = ({bonus, thisContext, input, getInputById}) => {
+        bonus.updateScaling(input.value, workflow, bonuses);
+        input.hints = bonus.scalingHints;
+        const targets = thisContext.inputs.find(i => i.isComboboxMulti)?.options[0];
+        if (targets) {
+            targets.maxTotal = bonus.maxTargets;
+            targets.hints = bonus.maxTargetsHints;
+            const selected = targets.options.filter(o => o.selected);
+            if (selected.length > targets.maxTotal)
+                for (let i = 0; i < selected.length - targets.maxTotal; i++)
+                    selected[i].selected = false;
+        }
+        const tags = getInputById(input.id.split(DialogApp.SUBINPUT_SEPARATOR)[0])?.tags ?? [];
+        for (const t of tags) {
+            if (t.id === 'formula') {
+                t.label = bonus.roll.formula;
+                continue;
+            }
+            const hint = bonus.scalingHints.find(h => h.id === t.id);
+            if (!hint) continue;
+            t.tooltip = hint.tooltip;
+            t.icon = hint.icon;
+        }
+        return true;
+    };
+    const targetsChange = ({bonus, input}) => {
+        const selected = new Set(input.options.filter(o => o.selected).map(o => o.value));
+        if (selected.size === bonus.targets.size) return;
+        bonus.targets = targets.filter(t => selected.has(t.id));
+    };
+    const hide = game.settings.get('cat', 'hideNames');
+    const optional = [], contextual = [];
+    for (let i = 0; i < bonuses.length; i++) {
+        const bonus = bonuses[i];
+        const name = 'b-' + i;
+        const subinputs = [];
+        if (bonus.maxScaling > 0)
+            subinputs.push(['slider', [{
+                name: name + '.scaling',
+                hints: bonus.scalingHints,
+                label: 'CAT.OptionalBonus.Scaling',
+                options: {
+                    min: 0,
+                    max: bonus.maxScaling,
+                    step: 1,
+                    onchange: ({thisContext, input, getInputById}) => sliderChange({bonus, thisContext, input, getInputById})
+                }
+            }]]);
+        const counter = {value: 1};
+        if (targets && bonus.maxTargets > 0)
+            subinputs.push(['comboboxMulti', [{
+                name: name + '.targets',
+                hints: bonus.maxTargetsHints,
+                label: 'CAT.OptionalBonus.Targets',
+                options: {
+                    maxTotal: bonus.maxTargets,
+                    options: targets.map(t => ({
+                        label: getTokenName(t, {hide, counter}),
+                        image: t.texture.src,
+                        value: t.id
+                    })),
+                    onchange: ({input}) => targetsChange({bonus, input})
+                }
+            }]]);
+        const tags = [];
+        if (bonus.roll) {
+            const type = CONFIG.DND5E.damageTypes[bonus.roll.options.type] ?? CONFIG.DND5E.healingTypes[bonus.roll.options.type];
+            tags.push({label: bonus.roll.formula, id: 'formula', image: type?.icon, tooltip: type?.label});
+        }   
+        if (bonus.scalingHints?.length) tags.push(...bonus.scalingHints.map(h => ({...h, label: tagLabel(h.id)})));
+        if (bonus.maxScaling > 0) tags.push({label: 'CAT.OptionalBonus.Scaleable', id: 'scaling'});
+        if (bonus.maxTargets > 0) tags.push({label: 'CAT.OptionalBonus.Targeted', id: 'targets'});
+        const fieldset = bonus.optional ? optional : contextual;
+        fieldset.push({
+            label: bonus.name,
+            hints: bonus.validateHints,
+            name: name + '.active',
+            options: {
+                image: bonus.img,
+                tooltip: await uiUtils.enrichHTML(bonus.description, bonus.roll.data),
+                subinputs,
+                locked: !bonus.optional,
+                isChecked: !bonus.optional,
+                tags,
+                onchange: ({input, group}) => {
+                    bonus.active = input.isChecked;
+                    validateAll(group.options);
+                    return true;
+                }
+            }
+        });
+    }
+    const inputs = [];
+    if (!optional.length) return [];
+    else inputs.push(['checkbox', optional, {displayAsRows: true, legend: contextual.length > 0 ? 'CAT.OptionalBonus.Optional' : ''}]);
+    if (contextual.length) inputs.push(['checkbox', contextual, {displayAsRows: true, legend: 'CAT.OptionalBonus.Contextual'}]);
+    const choices = await runDialog(game.user.id, title, content, inputs, 'okCancel', {height: 'auto'});
+    if (!choices?.buttons) return false;
+    return DamageBonus.ValidateAll(bonuses, {workflow});
+}
+async function selectAmounts(title, content, fields, {totalMax, displayAsRows = true, userId = game.user.id, buttons = 'okCancel'} = {}) {
+    let inputs = [['selectAmount', fields, {displayAsRows, totalMax}]];
+    let result = await runDialog(userId, title, content, inputs, buttons, {height: 'auto'});
+    if (!result?.buttons) return false;
+    delete result.buttons;
+    return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, Number(value)]));
 }
 async function selectSpellSlot(actor, title, content, {maxLevel = 9, minLevel = 0, userId = game.user.id, no = false} = {}) {
     let buttons = Object.entries(actor.system.spells).filter(([k, v]) => {
@@ -174,13 +332,13 @@ async function selectSpellSlot(actor, title, content, {maxLevel = 9, minLevel = 
     if (no) buttons.push(['No', false]);
     return await buttonDialog(title, content, buttons, {displayAsRows: true, userId});
 }
-async function selectDamageType(damageTypes, title, content, {addNo = false, userId = game.user.id} = {}) {
-    let buttons = damageTypes.map(t => [
-        CONFIG.DND5E.damageTypes[t]?.label ?? t,
-        t,
-        {image: CONFIG.DND5E.damageTypes[t]?.icon, imageClass: 'cat-dmg-icon'}
-    ]);
-    if (addNo) buttons.push(['No', false, {image: 'icons/svg/cancel.svg'}]);
+async function selectDamageType(damageTypes, title, content, {addNo = false, userId = game.user.id, sort = null} = {}) {
+    let buttons = damageTypes.map(t => {
+        const config = constants.damageTypeOptions().find(o => o.value === t);
+        return [config?.label ?? t, t, {image: config?.image, invertColor: config?.invertColor}];
+    });
+    if (sort === 'alphabetical') buttons.sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'en', {sensitivity: 'base'}));
+    if (addNo) buttons.push(['No', false, {image: constants.damageIcons.no}]);
     return await buttonDialog(title, content, buttons, {userId});
 }
 async function selectHitDie(actor, title, content, {max = 1, userId = game.user.id, additionalItems = []} = {}) {
@@ -230,12 +388,32 @@ async function selectHitDie(actor, title, content, {max = 1, userId = game.user.
         amount: Number(value)
     }));
 }
-async function confirmUseItem(item, {userId = game.user.id, buttons = 'yesNo'} = {}) {
-    let content = _loc('CAT.Dialog.Use', {itemName: item.name});
-    return await confirm('Confirm', content, {userId, buttons});
+async function confirm(title, content, {userId = game.user.id, buttons = 'yesNo'} = {}) {
+    let selection = await runDialog(userId, title, content, [], buttons);
+    return selection?.buttons;
 }
-async function queuedConfirmDialog(title, content, {actor, reason, userId = game.user.id} = {}) {
-    let selection = await runQueuedDialog(userId, title, content, [], 'yesNo', undefined, reason);
+async function confirmUseItem(document, {userId = game.user.id, buttons = 'yesNo'} = {}) {
+    let content = _loc('CAT.Dialog.Use', {document: document.name});
+    return await confirm('COMMON.Confirm', content, {userId, buttons});
+}
+async function confirmUseExtraCost(document, quantity, resource, {userId = game.user.id, buttons = 'yesNo'} = {}) {
+    let content = _loc('CAT.Dialog.UseExtraCost', {document: document.name, quantity, resource});
+    return await confirm('COMMON.Confirm', content, {userId, buttons});
+}
+async function confirmUseRollTotal(document, rollTotal, {userId = game.user.id, buttons = 'yesNo'} = {}) {
+    const content = _loc('CAT.Dialog.UseRollTotal', {document: document.name, rollTotal});
+    return await confirm('COMMON.Confirm', content, {userId, buttons});
+}
+async function confirmUseForRollTotal(document, name, rollTotal, {userId = game.user.id, buttons = 'yesNo'} = {}) {
+    const content = _loc('CAT.Dialog.UseForRollTotal', {document: document.name, name, rollTotal});
+    return await confirm('COMMON.Confirm', content, {userId, buttons});
+}
+async function confirmRecoverUses(document, documentWithUses, {spent, userId = game.user.id, buttons = 'yesNo'} = {}) {
+    const uses = (documentWithUses.system ?? documentWithUses).uses;
+    return await confirm('COMMON.Confirm', _loc('CAT.Dialog.UseRecover', {document: document.name, spent: spent ?? uses?.spent ?? 0, max: uses?.max ?? 0, resource: documentWithUses.name}), {userId, buttons});
+}
+async function queuedConfirmDialog(title, content, {userId = game.user.id} = {}) {
+    let selection = await runQueuedDialog(userId, title, content, [], 'yesNo');
     return selection?.buttons;
 }
 async function selectTargetDialog(title, content, targets, {type = 'one', selectOptions = [], skipDeadAndUnconscious = true, coverToken = undefined, reverseCover = false, displayDistance = true, maxAmount = 1, minAmount = 0, userId = game.user.id, buttons = 'okCancel', maxes = {}} = {}) {
@@ -243,22 +421,16 @@ async function selectTargetDialog(title, content, targets, {type = 'one', select
     const inputs = [[inputType]];
     const targetInputs = [];
     const hideNames = game.settings.get('cat', 'hideNames');
-    let number = 1;
+    const counter = {value: 1};
     for (const i of targets) {
-        let label;
-        if (hideNames && i.disposition <= 0) {
-            label = _loc('CAT.Dialog.UnknownTarget') + ' (' + number + ')';
-            number++;
-        } else {
-            label = i.name;
-        }
+        let label = getTokenName(i, {hide: hideNames, counter});
         if (coverToken && !reverseCover) label += ' [' + tokenUtils.checkCover(coverToken, i, {displayName: true}) + ']';
         else if (coverToken) label += ' [' + tokenUtils.checkCover(i, coverToken, {displayName: true}) + ']';
         if (displayDistance && coverToken) label += ' [' + tokenUtils.getDistance(coverToken, i).toFixed(2) + ' ' + canvas.scene.grid.units + ' ]';
         targetInputs.push({
             label,
             name: i.id,
-            options: {image: i.texture.src, isChecked: targetInputs.length === 0, options: selectOptions, maxAmount: maxes[i.id] ?? maxAmount, minAmount}
+            options: {image: i.texture.src, isChecked: type !== 'multiple' && targetInputs.length === 0, options: selectOptions, maxAmount: maxes[i.id] ?? maxAmount, minAmount}
         });
     }
     inputs[0].push(targetInputs);
@@ -308,15 +480,21 @@ async function selectDie(rolls = [], title, content, {max = 1, userId = game.use
     return Object.entries(result).filter(([, v]) => v).map(([k]) => k);
 }
 export default {
-    confirm,
     buttonDialog,
     numberDialog,
     selectDialog,
     selectDocumentDialog,
+    selectScaledDocument,
+    selectAmounts,
     selectSpellSlot,
     selectDamageType,
     selectHitDie,
+    confirm,
     confirmUseItem,
+    confirmUseExtraCost,
+    confirmUseRollTotal,
+    confirmUseForRollTotal,
+    confirmRecoverUses,
     queuedConfirmDialog,
     selectTargetDialog,
     selectDie

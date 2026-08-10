@@ -2,7 +2,7 @@ import {effectEvents} from '../events/_module.mjs';
 import {Logging} from '../lib/_module.mjs';
 async function deleteEmbeddedDocuments(wrapped, embeddedName, ids, operation = {}) {
     if (embeddedName != 'ActiveEffect') return await wrapped(embeddedName, ids, operation);
-    if (!(this instanceof Actor)) return await wrapped(embeddedName, ids, operation);
+    if (!(this instanceof Actor) || (this instanceof Item && this.actor)) return await wrapped(embeddedName, ids, operation);
     let effects = ids.map(id => this.effects.get(id)).filter(i => i);
     for (let effect of effects) {
         let result = await effectEvents.doDeleteActiveEffect(effect, operation);

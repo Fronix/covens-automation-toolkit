@@ -1,5 +1,12 @@
 import {constants, Events} from '../lib/_module.mjs';
 import {crosshairUtils, genericUtils, queryUtils} from './_module.mjs';
+/**
+ * Movement action for drag ruler. 'catForce' does not consume movement.
+ * @typedef {'blink'|'burrow'|'catForce'|'climb'|'crawl'|'displace'|'fly'|'jump'|'swim'|'walk'} MovementAction
+ */
+/** @import {Animations} from '../lib/_module.mjs' */
+/** @import {Crosshairs} from '../lib/_module.mjs' */
+
 function getSavedCastData(token) {
     return token.flags.cat?.castData;
 }
@@ -15,7 +22,7 @@ function checkCover(sourceToken, targetToken, {activity, displayName}) {
     if (!displayName) return cover;
     const names = {
         0: 'DND5E.COMMON.No',
-        2: 'DND5E.Cover.Half',
+        2: 'DND5E.CoverHalf',
         5: 'DND5E.CoverThreeQuarters',
         999: 'DND5E.CoverTotal'
     };
@@ -45,6 +52,11 @@ function findNearby(token, range, {disposition = 'all', includeIncapacitated = t
     return MidiQOL.findNearby(dispositions[disposition], token.object, range, {includeIncapacitated, includeToken}).map(placeable => placeable.document).filter(token => !token.hidden);
 }
 async function moveToken(token, waypoints, options = {}) {
+    if (token.object && options.constrainOptions?.ignoreWalls !== true) {
+        const origin = {x: token.x, y: token.y, elevation: token.elevation};
+        const [path] = token.object.constrainMovementPath([origin, ...waypoints], {...options.constrainOptions, preview: false});
+        if (!path.some(waypoint => !waypoint.intermediate && (waypoint.x !== token.x || waypoint.y !== token.y))) return;
+    }
     const hasPermission = queryUtils.hasPermission(token, game.user.id);
     if (hasPermission) {
         return await token.move(waypoints, options);
@@ -52,6 +64,15 @@ async function moveToken(token, waypoints, options = {}) {
         return await queryUtils.query('moveToken', queryUtils.gmUser(), {uuid: token.uuid, waypoints, options});
     }
 }
+/**
+ * Teleport a token to a chosen position. Always uses {@link MovementAction} displace.
+ * @param {foundry.documents.TokenDocument} token The token document to teleport.
+ * @param {object} [options]
+ * @param {Crosshairs} [options.destination] Data for crosshair result (see {@link Crosshairs.prototype.toObject}). A new crosshair is prompted if {@link destination} is undefined.
+ * @param {Animations['Animation']} [options.animation] Animation data (see {@link Animations.Animation}).
+ * @param {number} [options.range] Maximum distance in scene units.
+ * @returns {Promise<undefined>}
+ */
 async function teleportToken(token, {destination, animation, range = 30} = {}) {
     if (!destination) {
         const result = await new Events.MovementEvent(token, constants.movementPasses.aimTeleport, {range, animation, teleport: true}).run();
@@ -74,6 +95,17 @@ async function teleportToken(token, {destination, animation, range = 30} = {}) {
     if (postAnimation) await postAnimation(token, {destination});
     await new Events.MovementEvent(token, constants.movementPasses.postTeleport, {destination, animation, teleport: true, action: 'displace'}).run();
 }
+/**
+ * Move a token to a chosen position.
+ * @param {foundry.documents.TokenDocument} token The token document to move.
+ * @param {object} [options]
+ * @param {Crosshairs} [options.destination] Data for crosshair result (see {@link Crosshairs.prototype.toObject}). A new crosshair is prompted if {@link destination} is undefined.
+ * @param {Animations['Animation']} [options.animation] Animation data (see {@link Animations.Animation}).
+ * @param {foundry.documents.TokenDocument} [options.sourceToken] Origin of the movement.
+ * @param {MovementAction} [options.action] See {@link MovementAction}.
+ * @param {number} [options.range] Maximum distance in scene units.
+ * @returns {Promise<undefined>}
+ */
 async function displaceToken(token, {sourceToken, destination, animation, range = 5, action = 'catForce'} = {}) {
     destination ??= await crosshairUtils.aimCrosshair({token, maxRange: range});
     if (!destination || destination?.cancelled) return;
@@ -95,6 +127,16 @@ async function displaceToken(token, {sourceToken, destination, animation, range 
     const postAnimation = animation?.macros?.postAnimation;
     if (postAnimation) await postAnimation(token, {sourceToken, destination, action});
 }
+/**
+ * Push a token in a given direction.
+ * @param {foundry.documents.TokenDocument} token The token document to push.
+ * @param {object} options
+ * @param {foundry.canvas.geometry.Ray} [options.ray] Direction for the push. If not provided, {@link sourceToken} is used to create a ray directly away from {@link token}.
+ * @param {foundry.documents.TokenDocument} [options.sourceToken] Origin of the push. Must be provided if {@link ray} is undefined.
+ * @param {MovementAction} [options.action] See {@link MovementAction}.
+ * @param {number} [options.distance=5] Push distance in scene units.
+ * @returns {Promise<undefined>}
+ */
 async function slideToken(token, {sourceToken, distance = 5, ray, action = 'catForce'} = {}) {
     const results = await new Events.MovementEvent(token, constants.movementPasses.slide, {sourceToken, range: distance, ray, action}).run({multiResult: true});
     if (results && results.length) {
@@ -161,6 +203,7 @@ function getLightLevel(token) {
         const {data: {x, y}, ratio} = light;
         const bright = foundry.canvas.geometry.ClockwiseSweepPolygon.create({x, y}, {
             type: 'light',
+            // eslint-disable-next-line no-undef
             boundaryShapes: [new PIXI.Circle(x, y, ratio * light.shape.config.radius)]
         });
         return bright.contains(...c);

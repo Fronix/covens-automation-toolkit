@@ -2,6 +2,20 @@ import {uiUtils} from '../utilities/_module.mjs';
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 const {StringField, NumberField, BooleanField, FilePathField, SetField} = foundry.data.fields;
 
+/**
+ * @typedef DialogHint
+ * @property {string} label
+ * @property {string} id Used to fetch the hint and apply updates.
+ * @property {string} [icon] Font Awesome css class.
+ * @property {string} [image] The path to an image to be used as an icon.
+ * @property {string} [tooltip] Tooltip shown on hover.
+ */
+
+const INPUTS_TEMPLATE = 'modules/cat/templates/dialog-fields.hbs';
+Hooks.once('setup', () => {
+    foundry.applications.handlebars.loadTemplates([INPUTS_TEMPLATE]);
+});
+
 // Generic dialog for macros. API matches CPR v13 DialogApp.
 export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2) {
     #context;
@@ -36,7 +50,8 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
         },
         actions: {
             confirm: DialogApp.#confirm,
-            toggleDetach: DialogApp.#onToggleDetach
+            toggleDetach: DialogApp.#onToggleDetach,
+            toggleCollapsed: DialogApp.#toggleCollapsed
         },
         window: {
             frame: false,
@@ -52,9 +67,13 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
     static PARTS = {
         form: {
             template: 'modules/cat/templates/dialog-app.hbs',
-            scrollable: ['']
+            scrollable: ['.scrollable']
         }
     };
+
+    static get SUBINPUT_SEPARATOR() { return '-'; }
+    static get GROUP_ID() { return 'g'; }
+    static get INPUT_ID() { return 'i'; }
 
     /** @this {DialogApp} */
     async _preClose(options) {
@@ -74,6 +93,42 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             width: Math.round(rect.width) + chromeW,
             height: Math.round(rect.height) + chromeH
         }});
+    }
+
+    #expandedSections = new Map();
+    #queuedOpenSections = new Set();
+
+    /** @this {DialogApp} */
+    static #toggleCollapsed(_event, target) {
+        const collapsible = target.closest('.cat-form-group');
+        if (!collapsible) return;
+        collapsible.classList.toggle('collapsed');
+        this.#expandedSections.set(
+            target.closest('[data-collapsible-id]')?.dataset.collapsibleId,
+            !collapsible.classList.contains('collapsed')
+        );
+    }
+
+    #queueOpenCollapsible(target) {
+        const id = target.closest('[data-collapsible-id]')?.dataset.collapsibleId;
+        if (!id) return;
+        this.#queuedOpenSections.add(id);
+    }
+
+    #openCollapsible(target) {
+        const collapsible = target.closest('.cat-form-group');
+        if (!collapsible) return;
+        collapsible.classList.remove('collapsed');
+        this.#expandedSections.set(collapsible.dataset.collapsibleId, true);
+    }
+
+    _replaceHTML(result, content, options) {
+        for (const part of Object.values(result)) {
+            for (const element of part.querySelectorAll('[data-collapsible-id]')) {
+                element.classList.toggle('collapsed', !this.#expandedSections.get(element.dataset.collapsibleId));
+            }
+        }
+        super._replaceHTML(result, content, options);
     }
 
     /**
@@ -102,7 +157,11 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
 
     /** @this {DialogApp} */
     static async #formHandler(event, form, formData) {
-        this.#resolveResults(foundry.utils.expandObject(formData.object));
+        const results = foundry.utils.expandObject(formData.object);
+        this.#context?.inputs?.forEach(inp => inp.options?.forEach(o => {
+            if (o.locked && o.isChecked && !(o.name in results)) results[o.name] = true;
+        }));
+        this.#resolveResults(results);
     }
 
     /** @this {DialogApp} */
@@ -134,13 +193,17 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
         return arr;
     }
 
+    static #ID_REGEX = new RegExp(`${DialogApp.GROUP_ID}(\\d+)${DialogApp.INPUT_ID}(\\d+)`);
+
+    static #makeID(groupIndex, inputIndex, parentIndex = '') {
+        if (parentIndex) parentIndex += DialogApp.SUBINPUT_SEPARATOR;
+        return parentIndex + DialogApp.GROUP_ID + groupIndex + DialogApp.INPUT_ID + inputIndex;
+    }
+
     // Convert each declarative input tuple into template-ready entry.
     #formatInputs() {
         const context = {content: this.content, inputs: [], buttons: []};
-        for (const [inputType, inputFields, inputOptions] of this.inputs) {
-            const entry = this.#buildInput(inputType, inputFields, inputOptions);
-            if (entry) context.inputs.push(entry);
-        }
+        context.inputs = this.#buildInputs(this.inputs);
         switch (this.buttons) {
             case 'yesNo':
                 context.buttons.push(DialogApp.#makeButton('Yes', 'true'), DialogApp.#makeButton('No', 'false'));
@@ -155,27 +218,69 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                 context.buttons.push(DialogApp.#makeButton('Cancel', 'false'));
                 break;
         }
+        context.inputTemplate = INPUTS_TEMPLATE;
         this.#context = context;
     }
 
-    #buildInput(type, fields, opts) {
+    #buildInputs(inputs, parentIndex = '') {
+        if (!inputs?.length) return;
+        const built = [];
+        for (let i = 0; i < inputs.length; i++) {
+            const [inputType, inputFields, inputOptions] = inputs[i];
+            const entry = this.#buildInput(inputType, inputFields, inputOptions, i, parentIndex);
+            if (entry) built.push(entry);
+        }
+        return built;
+    }
+
+    #buildInput(type, ...args) {
         switch (type) {
-            case 'button': return this.#buildButton(fields, opts);
-            case 'checkbox': return this.#buildCheckbox(fields, opts);
-            case 'radio': return this.#buildRadio(fields, opts);
-            case 'selectAmount': return this.#buildSelectAmount(fields, opts);
-            case 'selectMany': return this.#buildSelectMany(fields, opts);
-            case 'selectOption': return this.#buildSelectOption(fields, opts);
-            case 'combobox': return this.#buildCombobox(fields, opts);
-            case 'comboboxMulti': return this.#buildComboboxMulti(fields, opts);
-            case 'text': return this.#buildText(fields);
-            case 'number': return this.#buildNumber(fields);
-            case 'filePicker': return this.#buildFilePicker(fields);
-            case 'dice': return this.#buildDice(fields, opts);
+            case 'text': return this.#buildText(...args);
+            case 'dice': return this.#buildDice(...args);
+            case 'radio': return this.#buildRadio(...args);
+            case 'button': return this.#buildButton(...args);
+            case 'number': return this.#buildNumber(...args);
+            case 'slider': return this.#buildSlider(...args);
+            case 'checkbox': return this.#buildCheckbox(...args);
+            case 'combobox': return this.#buildCombobox(...args);
+            case 'filePicker': return this.#buildFilePicker(...args);
+            case 'selectMany': return this.#buildSelectMany(...args);
+            case 'selectOption': return this.#buildSelectOption(...args);
+            case 'selectAmount': return this.#buildSelectAmount(...args);
+            case 'comboboxMulti': return this.#buildComboboxMulti(...args);
         }
     }
 
-    #buildDice(fields, opts) {
+    #buildSlider(fields, opts, index, parentIndex) {
+        return {
+            isSlider: true,
+            options: fields.map((f, i) => ({
+                name: f.name,
+                label: f.label,
+                hints: f.hints?.map(h => ({
+                    label: h.label,
+                    icon: h.icon,
+                    tooltip: h.tooltip,
+                    id: h.id
+                })),
+                value: f.value,
+                min: f.options?.min,
+                max: f.options?.max,
+                step: f.options?.step,
+                image: f.options?.image,
+                tooltip: f.options?.tooltip,
+                reference: f.options?.reference,
+                invertColor: f.options?.invertColor,
+                onchange: f.options?.onchange,
+                id: DialogApp.#makeID(index, i, parentIndex),
+                subinputs: this.#buildInputs(f.options?.subinputs, DialogApp.#makeID(index, i, parentIndex))
+            })),
+            hasSubinputs: fields.some(f => f.options?.subinputs?.length),
+            legend: opts?.legend
+        };
+    }
+
+    #buildDice(fields, opts, _index, _parentIndex) {
         const standardFaces = new Set([4, 6, 8, 10, 12, 20]);
         const groups = new Map();
         for (const f of fields) {
@@ -200,26 +305,29 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             currentNum: 0,
             grandTotal,
             groups: Array.from(groups.values()),
-            options: fields.map(f => ({name: f.name, isChecked: false}))
+            options: fields.map((f, i) => ({name: f.name, isChecked: false})),
+            legend: opts?.legend
         };
     }
 
-    #buildButton(fields, opts) {
+    #buildButton(fields, opts, index, parentIndex) {
         return {
             isButton: true,
             displayAsRows: opts?.displayAsRows ?? false,
-            options: fields.map(f => ({
+            options: fields.map((f, i) => ({
                 label: f.label,
                 name: f.name,
                 image: f.options?.image,
-                imageClass: f.options?.imageClass,
+                invertColor: f.options?.invertColor,
                 tooltip: f.options?.tooltip,
-                reference: f.options?.reference
-            }))
+                reference: f.options?.reference,
+                id: DialogApp.#makeID(index, i, parentIndex)
+            })),
+            legend: opts?.legend
         };
     }
 
-    #buildCheckbox(fields, opts) {
+    #buildCheckbox(fields, opts, index, parentIndex) {
         // Single checkbox with no totalMax / image → helper route (BooleanField).
         if (fields.length === 1 && opts?.totalMax == null && !fields[0].options?.image) {
             const f = fields[0];
@@ -228,78 +336,148 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                 options: [{
                     field: new BooleanField({label: f.label}),
                     name: f.name,
-                    value: f.options?.isChecked ?? false
+                    value: f.options?.isChecked ?? false,
+                    onchange: f.options?.onchange,
+                    id: DialogApp.#makeID(index, 0, parentIndex)
                 }]
             };
         }
-        const options = fields.map(f => ({
+        const options = fields.map((f, i) => ({
             label: f.label,
             name: f.name,
             isChecked: f.options?.isChecked ?? false,
-            image: f.options?.image
+            image: f.options?.image,
+            tooltip: f.options?.tooltip,
+            reference: f.options?.reference,
+            invertColor: f.options?.invertColor,
+            hints: f.hints?.map(h => ({
+                label: h.label,
+                icon: h.icon,
+                tooltip: h.tooltip,
+                id: h.id
+            })),
+            subinputs: this.#buildInputs(f.options?.subinputs, DialogApp.#makeID(index, i, parentIndex)),
+            locked: f.options?.locked ?? false,
+            onchange: f.options?.onchange,
+            tags: f.options?.tags?.map(t => ({
+                tooltip: t.tooltip,
+                label: t.label,
+                image: t.image,
+                icon: t.icon,
+                id: t.id
+            })),
+            id: DialogApp.#makeID(index, i, parentIndex)
         }));
         return {
             isCheckbox: true,
             options,
             totalMax: opts?.totalMax ?? 99,
             showCounter: opts?.totalMax != null,
-            currentNum: options.filter(i => i.isChecked).length
+            currentNum: options.filter(i => i.isChecked).length,
+            hasSubinputs: options.some(i => i.subinputs?.length),
+            legend: opts?.legend
         };
     }
 
-    #buildRadio(fields, opts) {
+    #buildRadio(fields, opts, index, parentIndex) {
         return {
             isRadio: true,
-            options: fields.map(f => ({
+            options: fields.map((f, i) => ({
                 label: f.label,
+                hints: f.hints?.map(h => ({
+                    label: h.label,
+                    icon: h.icon,
+                    tooltip: h.tooltip,
+                    id: h.id
+                })),
                 name: f.name,
                 isChecked: f.options?.isChecked ?? false,
-                image: f.options?.image
+                image: f.options?.image,
+                tooltip: f.options?.tooltip,
+                reference: f.options?.reference,
+                invertColor: f.options?.invertColor,
+                subinputs: this.#buildInputs(f.options?.subinputs, DialogApp.#makeID(index, i, parentIndex)),
+                onchange: f.options?.onchange,
+                tags: f.options?.tags?.map(t => ({
+                    tooltip: t.tooltip,
+                    label: t.label,
+                    image: t.image,
+                    icon: t.icon,
+                    id: t.id
+                })),
+                id: DialogApp.#makeID(index, i, parentIndex)
             })),
-            radioName: opts?.radioName ?? 'radio'
+            hasSubinputs: fields.some(f => f.options?.subinputs?.length),
+            radioName: opts?.radioName ?? 'radio',
+            legend: opts?.legend
         };
     }
 
-    #buildSelectAmount(fields, opts) {
-        const options = fields.map(f => {
+    #buildSelectAmount(fields, opts, index, parentIndex) {
+        const options = fields.map((f, i) => {
             const min = f.options?.minAmount ?? 0;
             const max = f.options?.maxAmount ?? 10;
+            const id = DialogApp.#makeID(index, i, parentIndex);
             return {
+                id,
                 label: f.label,
+                hints: f.hints?.map(h => ({
+                    label: h.label,
+                    icon: h.icon,
+                    tooltip: h.tooltip,
+                    id: h.id
+                })),
                 name: f.name,
                 minAmount: min,
                 maxAmount: max,
                 currentAmount: f.options?.currentAmount ?? 0,
                 weight: f.options?.weight ?? 1,
                 options: DialogApp.#makeRange(min, max),
-                image: f.options?.image
+                image: f.options?.image,
+                tooltip: f.options?.tooltip,
+                reference: f.options?.reference,
+                invertColor: f.options?.invertColor,
+                subinputs: this.#buildInputs(f.options?.subinputs, id),
+                tags: f.options?.tags?.map(t => ({
+                    tooltip: t.tooltip,
+                    label: t.label,
+                    image: t.image,
+                    icon: t.icon,
+                    id: t.id
+                })),
+                onchange: f.options?.onchange
             };
         });
         return this.#currentMaxAmounts({
+            hasSubinputs: options.some(o => o.subinputs?.length),
             isSelectAmount: true,
             totalMax: opts?.totalMax,
-            options
+            options,
+            legend: opts?.legend
         });
     }
 
-    #buildSelectMany(fields) {
+    #buildSelectMany(fields, opts, index, parentIndex) {
         return {
             useHelper: true,
-            options: fields.map(f => {
+            options: fields.map((f, i) => {
                 const choices = (f.options?.options ?? []).reduce((acc, i) => {
                     acc[i.value] = i.label;
                     return acc;
                 }, {});
                 return {
-                    field: new SetField(new StringField({choices}), {label: f.label}),
+                    field: new SetField(new StringField({choices}), {label: f.label, hint: f.hint}),
                     name: f.name,
-                    value: f.options?.value ?? []
+                    value: f.options?.value ?? [],
+                    id: DialogApp.#makeID(index, i, parentIndex),
+                    onchange: f.options?.onchange
                 };
-            })
+            }),
+            legend: opts?.legend
         };
     }
 
-    #buildSelectOption(fields) {
+    #buildSelectOption(fields, opts, _index, _parentIndex) {
         return {
             useHelper: true,
             options: fields.map(f => {
@@ -309,20 +487,30 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                     return acc;
                 }, {});
                 return {
-                    field: new StringField({label: f.label, choices, required: true, blank: false}),
+                    field: new StringField({label: f.label, hint: f.hint, choices, required: true, blank: false}),
                     name: f.name,
-                    value: f.options?.currentValue ?? ''
+                    value: f.options?.currentValue ?? '',
+                    onchange: f.options?.onchange
                 };
-            })
+            }),
+            legend: opts?.legend
         };
     }
 
-    #buildCombobox(fields) {
+    #buildCombobox(fields, opts, index, parentIndex) {
         return {
             isCombobox: true,
-            options: fields.map(f => ({
+            options: fields.map((f, i) => ({
                 label: f.label,
+                hints: f.hints?.map(h => ({
+                    label: h.label,
+                    icon: h.icon,
+                    tooltip: h.tooltip,
+                    id: h.id
+                })),
                 name: f.name,
+                tooltip: f.options?.tooltip,
+                reference: f.options?.reference,
                 value: f.options?.value ?? '',
                 placeholder: f.options?.placeholder ?? '',
                 options: (f.options?.options ?? []).map(o => ({
@@ -330,17 +518,30 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                     label: o.label,
                     image: o.image ?? '',
                     tag: o.tag ?? ''
-                }))
-            }))
+                })),
+                subinputs: this.#buildInputs(f.options?.subinputs, DialogApp.#makeID(index, i, parentIndex)),
+                id: DialogApp.#makeID(index, i, parentIndex),
+                onchange: f.options?.onchange
+            })),
+            hasSubinputs: fields.some(f => f.options?.subinputs?.length),
+            legend: opts?.legend
         };
     }
 
-    #buildComboboxMulti(fields) {
+    #buildComboboxMulti(fields, opts, index, parentIndex) {
         return {
             isComboboxMulti: true,
-            options: fields.map(f => ({
+            options: fields.map((f, i) => ({
                 label: f.label,
+                hints: f.hints?.map(h => ({
+                    label: h.label,
+                    icon: h.icon,
+                    tooltip: h.tooltip,
+                    id: h.id
+                })),
                 name: f.name,
+                tooltip: f.options?.tooltip,
+                reference: f.options?.reference,
                 placeholder: f.options?.placeholder ?? '',
                 amounts: !!f.options?.amounts,
                 maxTotal: f.options?.maxTotal ?? null,
@@ -350,35 +551,46 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                     image: o.image ?? '',
                     tag: o.tag ?? '',
                     weight: o.weight ?? 1,
-                    max: o.max ?? null
-                }))
-            }))
+                    max: o.max ?? null,
+                    selected: o.selected,
+                    amount: o.amount
+                })),
+                subinputs: this.#buildInputs(f.options?.subinputs, DialogApp.#makeID(index, i, parentIndex)),
+                id: DialogApp.#makeID(index, i, parentIndex),
+                onchange: f.options?.onchange
+            })),
+            hasSubinputs: fields.some(f => f.options?.subinputs?.length),
+            legend: opts?.legend
         };
     }
 
-    #buildText(fields) {
+    #buildText(fields, opts, _index, _parentIndex) {
         return {
             useHelper: true,
             options: fields.map(f => ({
-                field: new StringField({label: f.label}),
+                field: new StringField({label: f.label, hint: f.hint}),
                 name: f.name,
-                value: f.options?.currentValue ?? ''
-            }))
+                value: f.options?.currentValue ?? '',
+                onchange: f.options?.onchange
+            })),
+            legend: opts?.legend
         };
     }
 
-    #buildNumber(fields) {
+    #buildNumber(fields, opts, _index, _parentIndex) {
         return {
             useHelper: true,
             options: fields.map(f => ({
-                field: new NumberField({label: f.label}),
+                field: new NumberField({label: f.label, hint: f.hint}),
                 name: f.name,
-                value: f.options?.currentValue ?? 0
-            }))
+                value: f.options?.currentValue ?? 0,
+                onchange: f.options?.onchange
+            })),
+            legend: opts?.legend
         };
     }
 
-    #buildFilePicker(fields) {
+    #buildFilePicker(fields, opts, _index, _parentIndex) {
         return {
             useHelper: true,
             options: fields.map(f => {
@@ -387,11 +599,13 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                     : type === 'IMAGEVIDEO' ? ['IMAGE', 'VIDEO']
                         : type in CONST.FILE_CATEGORIES ? [type] : ['IMAGE'];
                 return {
-                    field: new FilePathField({label: f.label, categories}),
+                    field: new FilePathField({label: f.label, categories, hint: f.hint}),
                     name: f.name,
-                    value: f.options?.currentValue ?? ''
+                    value: f.options?.currentValue ?? '',
+                    onchange: f.options?.onchange
                 };
-            })
+            }),
+            legend: opts?.legend
         };
     }
 
@@ -415,6 +629,30 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
         return clone;
     }
 
+    #getContextByID(id) {
+        const groups = id?.split(DialogApp.SUBINPUT_SEPARATOR);
+        if (!groups?.length) return;
+        let ctx = this.#context;
+        let group, input;
+        for (let i = 0; i < groups.length; i++) {
+            const idx = groups[i].match(DialogApp.#ID_REGEX);
+            if (!idx) return;
+            group = parseInt(idx[1]);
+            input = parseInt(idx[2]);
+            if (groups.length > 1 && i !== groups.length - 1)
+                ctx = {inputs: ctx.inputs[group].options[input].subinputs};
+        }
+        return {
+            fullContext: this.#context,
+            thisContext: ctx,
+            groupIndex: group,
+            inputIndex: input,
+            group: ctx.inputs[group],
+            input: ctx.inputs[group].options[input],
+            getInputById: (id) => this.#getContextByID(id).input
+        };
+    }
+
     async _onChangeForm(formConfig, event) {
         super._onChangeForm(formConfig, event);
         const targetInput = event.target;
@@ -434,32 +672,49 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
             }
             return;
         }
-        const ctx = this.#context;
-        const idMatch = targetInput.id?.match(/i(\d+)j(\d+)/);
-        if (!idMatch) return;
-        const [i, j] = [parseInt(idMatch[1]), parseInt(idMatch[2])];
-        switch (targetInput.type) {
-            case 'checkbox': {
-                ctx.inputs[i].options[j].isChecked = targetInput.checked;
-                ctx.inputs[i].currentNum = ctx.inputs[i].options.reduce((acc, c) => c.isChecked ? acc + 1 : acc, 0);
-                this.render(true);
+        const ctx = this.#getContextByID(targetInput.id);
+        if (!ctx) return;
+        let changed = false;
+        switch (targetInput.type || targetInput.localName) {
+            case 'checkbox':
+                ctx.input.isChecked = targetInput.checked;
+                ctx.group.currentNum = ctx.group.options.reduce((acc, c) => acc += c.isChecked, 0);
+                if (ctx.group.showCounter) changed = true;
                 break;
-            }
-            case 'select-one': {
-                if (ctx.inputs[i].isSelectAmount) {
-                    ctx.inputs[i].options[j].currentAmount = Number(targetInput.value);
-                    if (ctx.inputs[i].options[j]?.weight) ctx.inputs[i] = this.#currentMaxAmounts(ctx.inputs[i]);
-                    this.render(true);
+            case 'select-one':
+                if (ctx.group.isSelectAmount) {
+                    ctx.input.currentAmount = Number(targetInput.value);
+                    if (ctx.input?.weight) ctx.group = this.#currentMaxAmounts(ctx.group);
+                    changed = true;
+                }
+                break;
+            case 'radio':
+                ctx.group.options.forEach(o => o.isChecked = false);
+                ctx.input.isChecked = targetInput.checked;
+                changed = true;
+                break;
+            case 'range-picker':
+                ctx.input.value = targetInput.value;
+                break;
+            case 'cat-combobox':
+                ctx.input.value = targetInput.value;
+                break;
+            case 'cat-multi-combobox': {
+                const selected = targetInput.selected;
+                for (const option of ctx.input.options) {
+                    option.selected = selected.has(option.value);
+                    option.amount = selected.get(option.value);
                 }
                 break;
             }
-            case 'radio': {
-                ctx.inputs[i].options.forEach(o => o.isChecked = false);
-                ctx.inputs[i].options[j].isChecked = targetInput.checked;
-                this.render(true);
-                break;
-            }
         }
+        if (ctx.input.onchange) changed ||= ctx.input.onchange(ctx);
+        if (ctx.group.hasSubinputs && ctx.input.isChecked) {
+            if (!changed) this.#openCollapsible(targetInput);
+            else this.#queueOpenCollapsible(targetInput);
+        }
+
+        if (changed) this.render(true);
     }
 
     // dnd5e fills the tooltip on hover via this placeholder.
@@ -506,6 +761,12 @@ export default class DialogApp extends HandlebarsApplicationMixin(ApplicationV2)
                 token.refresh();
             });
         }
+        for (const id of this.#queuedOpenSections) {
+            const collapsible = this.element.querySelector('#' + id);
+            if (!collapsible) continue;
+            this.#openCollapsible(collapsible);
+        }
+        this.#queuedOpenSections.clear();
         this.element.querySelectorAll('[data-reference-tooltip]').forEach(el => this.#applyTooltip(el));
     }
 }

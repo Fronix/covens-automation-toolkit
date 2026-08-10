@@ -25,7 +25,7 @@ const fields = foundry.data.fields;
  */
 
 class Automation {
-    constructor(source, rules, identifier, uuid, version, {config = {}, notes, monsterIdentifier, scales, type} = {}) {
+    constructor(source, rules, identifier, uuid, version, {config = {}, notes, monsterIdentifier, scales, type, sourceType} = {}) {
         this.source = source;
         this.rules = rules;
         this.identifier = identifier;
@@ -36,6 +36,7 @@ class Automation {
         this.monsterIdentifier = monsterIdentifier;
         this.scales = scales;
         this.type = type;
+        this.sourceType = sourceType;
     }
 
     /**
@@ -87,6 +88,11 @@ class Automation {
      * @type {string}
      */
     type;
+
+    /**
+     * @type {string}
+     */
+    sourceType;
     
     async getDocument() {
         return await fromUuid(this.uuid);
@@ -95,6 +101,7 @@ class Automation {
         return this.config?.[key]?.default;
     }
 }
+
 export class RegisteredAutomations {
     #automationsSchema = new fields.SchemaField({
         source: new fields.StringField({required: true, nullable: false}),
@@ -106,14 +113,15 @@ export class RegisteredAutomations {
         notes: new fields.StringField({required: false, nullable: false}),
         monsterIdentifier: new fields.StringField({required: false, nullable: false}),
         scales: new fields.ArrayField(new fields.ObjectField({required: true, nullable: false}), {required: false}),
-        type: new fields.StringField({required: false, nullable: false})
+        type: new fields.StringField({required: false, nullable: false}),
+        sourceType: new fields.StringField({required: false, nullable: false})
     });
     #multiAutomationsSchema = new fields.ArrayField(this.#automationsSchema);
 
     /**
-     * @type {Automation[]}
+     * @type {Map<string, Automation>}
      */
-    automations = [];
+    automations = new Map();
 
     /**
      * @type {Set<string>}
@@ -137,7 +145,7 @@ export class RegisteredAutomations {
      * @param {string[]} [options.excludeSources]           Which sources to exclude from consideration, if any
      * @returns {Automation[]|Automation|undefined}
      */
-    getAutomationByIdentifier(identifier, {rules = 'all', source = 'all', multiple = false, monsterIdentifier, type, excludeSources = []} = {}) {
+    getAutomationByIdentifier(identifier, {rules = 'all', source = 'all', multiple = false, monsterIdentifier, type, sourceType, excludeSources = []} = {}) {
         const predicate = automation => {
             if (automation.identifier !== identifier) return false;
             if (rules !== 'all' && automation.rules !== 'all' && automation.rules !== rules) return false;
@@ -145,9 +153,19 @@ export class RegisteredAutomations {
             if (excludeSources.includes(automation.source)) return false;
             if (monsterIdentifier && monsterIdentifier !== automation.monsterIdentifier) return false;
             if (type && type !== automation.type) return false;
+            if (automation.sourceType && automation.sourceType !== sourceType) return false;
             return true;
         };
-        return multiple ? this.automations.filter(predicate) : this.automations.find(predicate);
+        if (multiple) {
+            const results = [];
+            for (const automation of this.automations.values()) {
+                if (predicate(automation)) results.push(automation);
+            }
+            return results;
+        }
+        for (const automation of this.automations.values()) {
+            if (predicate(automation)) return automation;
+        }
     }
 
     /**
@@ -160,13 +178,15 @@ export class RegisteredAutomations {
             Logging.addRegistrationError(data, 'automation', validationError.asError());
             return false;
         }
-        this.automations.push(new Automation(data.source, data.rules, data.identifier, data.uuid, data.version, {
+        const automation = new Automation(data.source, data.rules, data.identifier, data.uuid, data.version, {
             config: data.config,
             notes: data.notes,
             monsterIdentifier: data.monsterIdentifier,
             scales: data.scales,
-            type: data.type
-        }));
+            type: data.type,
+            sourceType: data.sourceType
+        });
+        this.automations.set(data.uuid, automation);
         this.sources.add(data.source);
         Logging.addEntry('DEBUG', 'Automation Registered: ' + data.identifier + ' from ' + data.source + ' with version ' + data.version);
         return true;
@@ -193,7 +213,7 @@ export class RegisteredAutomations {
     getConfigValue(document, key) {
         /** @type {AutomationConfig['default']|undefined} */
         const value = document.flags.cat?.config?.[key];
-        if (value) return value;
+        if (value != undefined) return value;
         /** @type {Automation|undefined} */
         const automation = this.getAutomationByIdentifier(documentUtils.getIdentifier(document), {
             rules: documentUtils.getRules(document),
@@ -224,7 +244,6 @@ export class RegisteredAutomations {
         source ??= pack.metadata.packageName;
         const documentType = pack.metadata.type;
         Logging.group('Automation Compendium Registered: ' + pack.metadata.label + ' (' + pack.metadata.packageName + ')');
-        //Logging.addEntry('DEBUG', 'Automation Compendium Registered: ' + pack.metadata.label + ' from ' + pack.metadata.packageName);
         const results = index.map(document => {
             try {
                 return this.#registerIndexEntry(document, {documentType, source, configs2014, configs2024, configsAll, versions2014, versions2024, versionsAll, rules, notes2014, notes2024, notesAll, scales2014, scales2024, scalesAll, typesAll, types2014, types2024});
@@ -248,7 +267,10 @@ export class RegisteredAutomations {
             if (!pack) continue;
             try {
                 // Scrub any partial registration from an earlier attempt before re-registering
-                this.automations = this.automations.filter(automation => !automation.uuid.startsWith('Compendium.' + packId + '.'));
+                const prefix = 'Compendium.' + packId + '.';
+                for (const uuid of this.automations.keys()) {
+                    if (uuid.startsWith(prefix)) this.automations.delete(uuid);
+                }
                 const packResults = await this.registerAutomationCompendium(pack, options);
                 Logging.addEntry('INFO', 'Recovered automation registration for ' + packId + ' (' + packResults.filter(Boolean).length + ' automations, retry round ' + round + ')', {force: true});
             } catch (error) {
@@ -367,35 +389,38 @@ export class RegisteredAutomations {
         if (failedPackIds.length) this.#retryFailedPacks(module, failedPackIds, options);
         return results;
     }
-
     registerSourceName(id, name) {
         if (!id || !name) return;
         this.sourceNames[id] = name;
     }
-
     getSourceName(id) {
         return this.sourceNames[id] ?? id;
     }
-
     unregisterAutomationsBySource(source) {
-        const initialLength = this.automations.length;
-        this.automations = this.automations.filter(automation => automation.source !== source);
-        if (this.automations.length !== initialLength) {
+        const initialSize = this.automations.size;
+        for (const [uuid, automation] of this.automations.entries()) {
+            if (automation.source === source) this.automations.delete(uuid);
+        }
+        if (this.automations.size !== initialSize) {
             this.sources.delete(source);
             Logging.addEntry('DEBUG', 'Unregistered all automations from source: ' + source);
         }
     }
-
     unregisterAutomation(source, identifier, rules) {
-        const initialLength = this.automations.length;
-        this.automations = this.automations.filter(automation => !(automation.source === source && automation.identifier === identifier && automation.rules === rules));
-        if (this.automations.length !== initialLength) Logging.addEntry('DEBUG', 'Unregistered automation: ' + identifier + ' from ' + source + ' (' + rules + ')');
+        const initialSize = this.automations.size;
+        for (const [uuid, automation] of this.automations.entries()) {
+            if (automation.source === source && automation.identifier === identifier && automation.rules === rules) {
+                this.automations.delete(uuid);
+            }
+        }
+        if (this.automations.size !== initialSize) {
+            Logging.addEntry('DEBUG', 'Unregistered automation: ' + identifier + ' from ' + source + ' (' + rules + ')');
+        }
     }
-
     unregisterUuid(uuid) {
-        const initialLength = this.automations.length;
-        this.automations = this.automations.filter(automation => automation.uuid !== uuid);
-        if (this.automations.length !== initialLength) Logging.addEntry('DEBUG', 'Unregistered automation with uuid: ' + uuid);
+        if (this.automations.delete(uuid)) {
+            Logging.addEntry('DEBUG', 'Unregistered automation with uuid: ' + uuid);
+        }
     }
 }
 export default {
